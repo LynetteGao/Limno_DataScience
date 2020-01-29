@@ -65,6 +65,37 @@ calc_td_depth <- function(wtemp){
   return(td.depth)
 }
 
+#'
+#' Calculate mean epilimnion and hypolimnion surface temperature,using the thermocline depth
+#'
+#' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
+#' @return vector of thermocline depths in m
+calc_epil_hypo_temp<-function(wtemp,td.depth){
+  grd.info <- extract_time_space(wtemp)
+  temp <- as.matrix(wtemp[,-c(1)])
+  depth_data = as.double(grd.info$depth)
+  
+  epil_temp <-  rep(NA, length(td.depth))
+  hypo_temp <- rep(NA, length(td.depth))
+  total_temp<- rep(NA, length(td.depth))
+  
+  for (ii in 1:length(td.depth)){
+    idx = !is.na(temp[ii,])
+    temp_data = as.numeric(temp[ii,idx])
+    if(is.na(td.depth[ii])){
+      total_temp[ii]<-sum(temp_data)/length(temp_data)
+    }else{
+      td_idx <- min(which(td.depth[ii]>depth_data))
+      epil_temp[ii] <- mean(temp_data[1:td_idx])
+      hypo_temp[ii] <- mean(temp_data[(td_idx+1):length(temp_data)])
+    }
+  }
+  return(list(epil_temp,hypo_temp,total_temp))
+  
+}
+
+
+
 #' Create temperature and volume input values for oxygen model
 #'
 #' Calculate mean epilimnion and hypolimnion surface temperature, as well as volumes.
@@ -75,7 +106,7 @@ calc_td_depth <- function(wtemp){
 input <- function(wtemp, H, A){
   td.depth <- calc_td_depth(wtemp)
     
-  return(data.frame())
+  return(data.frame(td.depth))
 }
 
 
