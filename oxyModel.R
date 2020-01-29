@@ -5,11 +5,15 @@ setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 ## packages
 # get glmtools by first installing devtools, e.g. install.packages('devtools), then
 # devtools::install_github('USGS-R/glmtools', ref='ggplot_overhaul')
+library(devtools)
 library(glmtools) 
 library(dplyr)
 
+devtools::install_github('LynetteGao/Limno_DataScience')
+library(simpleAnoxia)
+
 ## source all functions
-source('R/helper.R')
+# source('R/helper.R')
 
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
