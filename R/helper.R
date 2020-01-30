@@ -130,6 +130,8 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
     if(!is.na(td.depth[ii])){
       h_idx <- min(which(td.depth[ii]>H))
       vol_data[ii,2] <- trapz(rev(H[h_idx:length(H)]),rev(A[h_idx:length(H)]))
+      print(rev(H[h_idx:length(H)]))
+      print(rev(A[h_idx:length(H)]))
       vol_data[ii,1] <- vol_total - vol_data[ii,2]
     }
   }
@@ -145,11 +147,12 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
 #' @return vector of thermocline depths in m
 #' @export
 input <- function(wtemp, H, A){
+  grd.info <- extract_time_space(wtemp)
   td.depth <- calc_td_depth(wtemp)
   temp_out<-calc_epil_hypo_temp(wtemp,td.depth,H)
   total_vol<- calc_total_vol(H,A)
   vol<-calc_epil_hypo_vol(H,A,td.depth,total_vol)
-  return(data.frame(cbind(td.depth,t.epil = temp_out$t_epil,t.hypo=temp_out$t_hypo,
+  return(data.frame(cbind(datetime = grd.info$datetime,td.depth,t.epil = temp_out$t_epil,t.hypo=temp_out$t_hypo,
                           t.total = temp_out$t_total,total_vol,vol)))
 }
 
