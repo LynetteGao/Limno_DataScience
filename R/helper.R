@@ -69,8 +69,10 @@ calc_td_depth <- function(wtemp){
 #' Calculate mean epilimnion and hypolimnion surface temperature,using the thermocline depth
 #'
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
-#' @return vector of thermocline depths in m
-calc_epil_hypo_temp<-function(wtemp,td.depth){
+#' @param td.depth matrix; thermocline depth
+#' @param H the depth info of the lake
+#' @return list of temperatures vector
+calc_epil_hypo_temp<-function(wtemp,td.depth,H){
   grd.info <- extract_time_space(wtemp)
   temp <- as.matrix(wtemp[,-c(1)])
   depth_data = as.double(grd.info$depth)
@@ -82,19 +84,57 @@ calc_epil_hypo_temp<-function(wtemp,td.depth){
   for (ii in 1:length(td.depth)){
     idx = !is.na(temp[ii,])
     temp_data = as.numeric(temp[ii,idx])
-    if(is.na(td.depth[ii])){
-      total_temp[ii]<-sum(temp_data)/length(temp_data)
-    }else{
-      td_idx <- min(which(td.depth[ii]>depth_data))
+    total_temp[ii]<-sum(temp_data)/length(temp_data)
+    if(!is.na(td.depth[ii])){
+      td_idx <- max(which(td.depth[ii]>=depth_data))
       epil_temp[ii] <- mean(temp_data[1:td_idx])
       hypo_temp[ii] <- mean(temp_data[(td_idx+1):length(temp_data)])
     }
   }
-  return(list(epil_temp,hypo_temp,total_temp))
+  return(list('t_epil' = epil_temp,'t_hypo' = hypo_temp,'t_total' = total_temp))
   
 }
 
+#'
+#' Calculate water total volume,using the thermocline depth
+#'
+#' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
+#' @param td.depth matrix; thermocline depth
+#' @return list of temperatures
+calc_total_vol<-function(H,A){
+  if (length(H)==1){
+    vol_total <- 1/3.0 * A * H
+  }else{
+    H.diff <- rep(NA, length(A))
+    # integration of A over dh
+    # H.diff <-  lag(H)-H
+    # vol_total<- sum(A * (lag(H)-H),na.rm=TRUE)
+    vol_total <- trapz(rev(H),rev(A))
+  }
+  return (vol_total)
+}
 
+#'
+#' Calculate water epilimnion and hypolimnine volume,using the thermocline depth
+#'
+#' @param H vector; the depth info of the lake
+#' @param A vector; the area info of the lake for each depth
+#' @param td.depth matrix; thermocline depth
+#' @param vol_total number;the total volume of the lake
+#' @return matrix of epil and hypo volume
+calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
+  vol_data <- matrix(NA, nrow = length(td.depth), ncol = 2)
+  colnames(vol_data) <- c("vol_epil","vol_hypo")
+  for (ii in 1:length(td.depth)){
+    if(!is.na(td.depth[ii])){
+      h_idx <- min(which(td.depth[ii]>H))
+      vol_data[ii,2] <- trapz(rev(H[h_idx:length(H)]),rev(A[h_idx:length(H)]))
+      vol_data[ii,1] <- vol_total - vol_data[ii,2]
+    }
+  }
+  return (vol_data)
+}
+  
 
 #' Create temperature and volume input values for oxygen model
 #'
@@ -105,12 +145,12 @@ calc_epil_hypo_temp<-function(wtemp,td.depth){
 #' @export
 input <- function(wtemp, H, A){
   td.depth <- calc_td_depth(wtemp)
-    
-  return(data.frame(td.depth))
+  temp_out<-calc_epil_hypo_temp(wtemp,td.depth,H)
+  total_vol<- calc_total_vol(H,A)
+  vol<-calc_epil_hypo_vol(H,A,td.depth,total_vol)
+  return(data.frame(cbind(td.depth,t.epil = temp_out$t_epil,t.hypo=temp_out$t_hypo,
+                          t.total = temp_out$t_total,total_vol,vol)))
 }
-
-
-
 
 
 
