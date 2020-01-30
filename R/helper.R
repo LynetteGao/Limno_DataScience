@@ -12,6 +12,7 @@ calc_dens <- function(wtemp){
   return(dens)
 }
 
+
 #' Extract time and space information
 #'
 #' Extracts time (from date column) and space (aka depth) information
@@ -129,10 +130,8 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
   for (ii in 1:length(td.depth)){
     if(!is.na(td.depth[ii])){
       h_idx <- min(which(td.depth[ii]>H))
-      vol_data[ii,2] <- trapz(rev(H[h_idx:length(H)]),rev(A[h_idx:length(H)]))
-      print(rev(H[h_idx:length(H)]))
-      print(rev(A[h_idx:length(H)]))
-      vol_data[ii,1] <- vol_total - vol_data[ii,2]
+      vol_data[ii,1] <- trapz(rev(H[h_idx:length(H)]),rev(A[h_idx:length(H)]))
+      vol_data[ii,2] <- vol_total - vol_data[ii,1]
     }
   }
   return (vol_data)
