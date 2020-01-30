@@ -101,6 +101,7 @@ calc_epil_hypo_temp<-function(wtemp,td.depth,H){
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
 #' @param td.depth matrix; thermocline depth
 #' @return list of temperatures
+#' @importFrom pracma trapz 
 calc_total_vol<-function(H,A){
   if (length(H)==1){
     vol_total <- 1/3.0 * A * H
