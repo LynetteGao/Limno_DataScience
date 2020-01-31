@@ -12,6 +12,7 @@ calc_dens <- function(wtemp){
   return(dens)
 }
 
+
 #' Extract time and space information
 #'
 #' Extracts time (from date column) and space (aka depth) information
@@ -84,7 +85,7 @@ calc_epil_hypo_temp<-function(wtemp,td.depth,H){
   for (ii in 1:length(td.depth)){
     idx = !is.na(temp[ii,])
     temp_data = as.numeric(temp[ii,idx])
-    total_temp[ii]<-sum(temp_data)/length(temp_data)
+    total_temp[ii]<-max(sum(temp_data)/length(temp_data),4)
     if(!is.na(td.depth[ii])){
       td_idx <- max(which(td.depth[ii]>=depth_data))
       epil_temp[ii] <- mean(temp_data[1:td_idx])
@@ -107,9 +108,6 @@ calc_total_vol<-function(H,A){
     vol_total <- 1/3.0 * A * H
   }else{
     H.diff <- rep(NA, length(A))
-    # integration of A over dh
-    # H.diff <-  lag(H)-H
-    # vol_total<- sum(A * (lag(H)-H),na.rm=TRUE)
     vol_total <- trapz(rev(H),rev(A))
   }
   return (vol_total)
@@ -129,10 +127,8 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
   for (ii in 1:length(td.depth)){
     if(!is.na(td.depth[ii])){
       h_idx <- min(which(td.depth[ii]>H))
-      vol_data[ii,2] <- trapz(rev(H[h_idx:length(H)]),rev(A[h_idx:length(H)]))
-      print(rev(H[h_idx:length(H)]))
-      print(rev(A[h_idx:length(H)]))
-      vol_data[ii,1] <- vol_total - vol_data[ii,2]
+      vol_data[ii,1] <- trapz(rev(H[h_idx:length(H)]),rev(A[h_idx:length(H)]))##epil
+      vol_data[ii,2] <- vol_total - vol_data[ii,1]##hypo
     }
   }
   return (vol_data)
@@ -155,6 +151,78 @@ input <- function(wtemp, H, A){
   return(data.frame(cbind(datetime = grd.info$datetime,td.depth,t.epil = temp_out$t_epil,t.hypo=temp_out$t_hypo,
                           t.total = temp_out$t_total,total_vol,vol)))
 }
+
+
+
+#' Calculate the mass of dissolved oxgen in epil and hypolimnion(during stratified period)
+#' and the total dissovled oxygen in the lake
+#' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
+#' @return list of datetimes and depths
+#' @export
+#' 
+calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratified,nep_not_stratified){
+  ##initialize the o2(hypo),o2(epil),o2(total)
+  o2_data <- matrix(NA, nrow = length(input.values$td.depth), ncol = 3)
+  colnames(o2_data) <- c("o2_epil","o2_hypo","o2_total")
+  
+  init_o2sat <- o2.at.sat.base(temp=input.values$t.total[1],altitude = 300)
+  o2_data[1,3]<- init_o2sat*input.values$total_vol[1]
+  
+  K600 <- k.cole.base(2)
+  for(day in 2:length(input.values$td.depth)){
+    ## not stratified period, only consider the o2(total)
+    if(is.na(input.values$td.depth[day])){
+      NEP <- nep_not_stratified * input.values$total_vol[day]
+      
+      kO2 <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.total[day],gas='O2')
+      o2sat<-o2.at.sat.base(temp=input.values$t.total[day],altitude = 300)
+      Fatm <- kO2*(o2sat*input.values$total_vol[day]-o2_data[day-1,"o2_total"])/max(H)
+      
+      Fsed <- fsed_not_stratified *o2_data[day-1,"o2_total"]
+      
+      o2_data[day,"o2_total"] <- o2_data[day-1,"o2_total"] - Fsed + NEP + Fatm
+    }
+    # the day it turns to stratified, need to reassign the o2 to hypo and epil
+    else if(is.na(input.values$td.depth[day-1])){
+      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_total"]/input.values$t.total[day]*input.values$vol_epil[day]
+      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_total"]/input.values$t.total[day]*input.values$vol_hypo[day]
+      o2_data[day,"o2_total"]<-o2_data[day,"o2_epil"]+o2_data[day,"o2_hypo"]
+    }else{
+      ##epil = epil.O2[i-1]+NEP[i]+Fatm[i]
+      NEP_epil <- nep_stratified * input.values$vol_epil[day]
+      
+      kO2_epil <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.epil[day],gas='O2')
+      o2sat_epil<-o2.at.sat.base(temp=input.values$t.epil[day],altitude = 300)
+      Fatm_epil <- kO2_epil*(o2sat_epil*input.values$vol_epil[day]-o2_data[day-1,"o2_epil"] )/input.values$td.depth[day] #possible wrong z
+      
+      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"]+NEP_epil+Fatm_epil
+      
+      ##hypo = hypo_o2[i-1]+Fhypo[i] - Fsed[i] + NEP[i]+Fatm[i]
+      volumechange_hypo = input.values$vol_hypo[day]-input.values$vol_hypo[day-1]  #in m^3
+      volumechange_hypo_proportion =  volumechange_hypo/input.values$vol_hypo[day-1] 
+      Fhypo <- volumechange_hypo_proportion* o2_data[day-1,"o2_hypo"]
+      
+      Fsed <- fsed_stratified *o2_data[day-1,"o2_hypo"]
+      
+      NEP_hypo <- nep_stratified * input.values$vol_hypo[day]
+      
+      kO2_hypo <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.hypo[day],gas='O2')
+      o2sat_hypo<-o2.at.sat.base(temp=input.values$t.hypo[day],altitude = 300)
+      Fatm_hypo <- kO2_hypo*(o2sat_hypo*input.values$vol_hypo[day]-o2_data[day-1,"o2_hypo"] )/(max(H)-input.values$td.depth[day])
+      
+      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed + NEP_hypo +Fatm_hypo
+      
+      ## total = hypo+epil
+      o2_data[day,"o2_total"] <- o2_data[day,"o2_hypo"] + o2_data[day,"o2_epil"]
+    }
+  }
+  return (o2_data)
+}
+
+
+
+
+
 
 
 
