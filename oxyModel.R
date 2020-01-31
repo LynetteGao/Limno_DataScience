@@ -35,7 +35,7 @@ for (ii in lks[1]){
   # temperature conversion there
   input.values <- input(wtemp = data, H = H, A = A)
   
-  fsed_stratifed = 0.01
+  fsed_stratifed = 0.01 *100
   fsed_not_stratified  =  0.0002
   nep_stratified = max(A)*2
   nep_not_stratified = 0
@@ -45,22 +45,25 @@ for (ii in lks[1]){
   input.values$o2_hypo <- o2[,"o2_hypo"]
   input.values$o2_total <- o2[,"o2_total"]
 }
-space_time <- extract_time_space(data)
 
-input.values$timedate <- space_time$datetime
 input.values$year <- year(space_time$datetime)
 input.values$doy <- yday(space_time$datetime)
 
+ggplot(subset(input.values, year == '1979')) +
+  geom_line(aes(doy, td.depth, col = 'Total')) 
 
-ggplot(input.values) +
-  geom_line(aes(doy, o2_epil, col = 'Epi')) +
-  geom_line(aes(doy, o2_hypo, col = 'Hypo')) +
-  ylim(...)+
+ggplot(subset(input.values, year == '1979')) +
+  geom_line(aes(doy, log10(o2_total), col = 'Total')) +
+  geom_line(aes(doy, log10(o2_epil), col = 'Epi')) +
+  geom_line(aes(doy, log10(o2_hypo), col = 'Hypo')) +
+  # ylim(-10, 1e30)+
   facet_wrap(~year) +
   theme_bw()
 
 ggplot(input.values) +
-  geom_line(aes(doy, td.depth)) +
+  geom_point(aes(doy, (o2_total), col = 'Total')) +
+  geom_point(aes(doy, (o2_epil), col = 'Epi')) +
+  geom_point(aes(doy, (o2_hypo), col = 'Hypo')) +
   facet_wrap(~year) +
   theme_bw()
 
