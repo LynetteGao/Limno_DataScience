@@ -12,7 +12,6 @@ library(ggplot2)
 library(lubridate)
 library(pracma)
 library(LakeMetabolizer)
-library(rgdal)
 
 
 devtools::install_github('LynetteGao/Limno_DataScience')
@@ -21,19 +20,39 @@ library(simpleAnoxia)
 ## source all functions
 #source('R/helper.R')
 
+# load shapefiles
+library(sf)
+lakes = st_read(file.path('inst/extdata/study_lakes.shp'))
+ggplot(lakes) + geom_sf()
+poly.distance <- function(polygon){
+  polygon <- st_sfc(polygon, crs = 4269)
+  return(max(st_distance(st_cast(polygon, "POINT"))))
+}
+str(lakes)
+poly.distance(st_geometry(lakes[4,]))
+df.poly <- matrix(NA,ncol=2,nrow=nrow(lakes))
+for (jj in 2001:2500){
+  df.poly[jj,1] <- poly.distance(st_geometry(lakes[jj,]))
+  df.poly[jj,2] <- 10^(0.336 * log10(df.poly[jj,1]) - 0.245) # https://www.nrcresearchpress.com/doi/pdfplus/10.1139/f90-108
+  print(paste0(jj,' of ', nrow(df.poly),' and we use ',object.size(df.poly)))
+}
+
+
+# sapply(st_geometry(lakes), poly.distance)
+# purrr::map(st_geometry(lakes), poly.distance)
+
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
-shp <- readOGR(dsn = file.path('inst/extdata/study_lakes.shp'), stringsAsFactors = F)
-map <- ggplot() + geom_polygon(data = shp, aes(x = long, y = lat, group = group), colour = "black", fill = NA)
-map <- map + theme_void()
-ggsave(file=paste0('lakes_location.png'), map, dpi = 300,width = 450,height = 400, units = 'mm')
-
 
 for (ii in lks[5]){
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
-  raw_obs <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'observed', include.dirs = T)))
-  obs <- raw_obs %>%
-    dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+  
+  if (length( list.files(ii, pattern = 'observed', include.dirs = T)) > 0){
+    raw_obs <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'observed', include.dirs = T)))
+    obs <- raw_obs %>%
+      dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+    
+  }
   
   eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
   H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))
