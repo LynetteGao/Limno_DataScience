@@ -12,6 +12,8 @@ library(ggplot2)
 library(lubridate)
 library(pracma)
 library(LakeMetabolizer)
+library(rgdal)
+
 
 devtools::install_github('LynetteGao/Limno_DataScience')
 library(simpleAnoxia)
@@ -21,11 +23,17 @@ library(simpleAnoxia)
 
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
+shp <- readOGR(dsn = file.path('inst/extdata/study_lakes.shp'), stringsAsFactors = F)
+map <- ggplot() + geom_polygon(data = shp, aes(x = long, y = lat, group = group), colour = "black", fill = NA)
+map <- map + theme_void()
+ggsave(file=paste0('lakes_location.png'), map, dpi = 300,width = 450,height = 400, units = 'mm')
 
 
-
-for (ii in lks[1]){
-  data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'csv', include.dirs = T)))
+for (ii in lks[5]){
+  data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
+  raw_obs <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'observed', include.dirs = T)))
+  obs <- raw_obs %>%
+    dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
   
   eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
   H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))
@@ -37,7 +45,7 @@ for (ii in lks[1]){
   
   fsed_stratified = 0.01 *100
   fsed_not_stratified  =  0.0002
-  nep_stratified = 1#max(A)*2
+  nep_stratified = 0.1#max(A)*2
   nep_not_stratified = 0
   
   o2<- calc_do(input.values = input.values,fsed_stratified,fsed_not_stratified,nep_stratified,nep_not_stratified)
@@ -64,7 +72,7 @@ ggplot(input.values) +
   geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
   geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
   geom_point(aes(doy, (o2_hypo/vol_hypo/1000), col = 'Hypo')) +
-  ylim(0,20)+
+  ylim(0,25)+
   facet_wrap(~year) +
   theme_bw()
 
