@@ -116,12 +116,14 @@ model_mse<-function(obs,input.values){
         if(is.na(input.values$td.depth[kk])){
           test_data$predict_total_do[jj] <- input.values$o2_total[kk]
           test_data$observed_total_do[jj] <- mean(obs[which(obs$ActivityStartDate == ndate[jj]),4])
+          break
         }else{
           td <- input.values$td.depth[kk]
           test_data$predict_epil_do[jj] <- input.values$o2_epil[kk]/input.values$vol_epil[kk]/1000
           test_data$predict_hypo_do[jj] <- input.values$o2_hypo[kk]/input.values$vol_hypo[kk]/1000
           test_data$observed_epil_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue<=td),4])
           test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4])
+          break
         }
     }
   }
