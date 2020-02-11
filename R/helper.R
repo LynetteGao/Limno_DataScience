@@ -126,8 +126,11 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
   colnames(vol_data) <- c("vol_epil","vol_hypo")
   for (ii in 1:length(td.depth)){
     if(!is.na(td.depth[ii])){
-      h_idx <- min(which(td.depth[ii]>H))
-      vol_data[ii,1] <- trapz(rev(H[h_idx:length(H)]),rev(A[h_idx:length(H)]))##epil
+      h_idx <- min(which(td.depth[ii]>=H))
+      approx_td.area<-approx(H, A, c(0, td.depth[ii]))$y[2]
+      H_with_td<-c(td.depth[ii],H[h_idx:length(H)])
+      A_with_td<-c(approx_td.area,A[h_idx:length(A)])
+      vol_data[ii,1] <- trapz(rev(H_with_td),rev(A_with_td))##epil
       vol_data[ii,2] <- vol_total - vol_data[ii,1]##hypo
     }
   }
@@ -182,7 +185,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       Fsed <- fsed_not_stratified * o2_data[day-1,"o2_total"]/max(H)  # mg/m * m/d = mg/d
       
       o2_data[day,"o2_total"] <- o2_data[day-1,"o2_total"] - Fsed + NEP + Fatm # units make sense bc every term is actually multiplied
-      print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
+      # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
       # with delta t
     }
     # the day it turns to stratified, need to reassign the o2 to hypo and epil
@@ -199,7 +202,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       Fatm_epil <- kO2_epil*(o2sat_epil*input.values$vol_epil[day]-o2_data[day-1,"o2_epil"] )/input.values$td.depth[day] #possible wrong z
       
       o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"]+NEP_epil+Fatm_epil
-      print((o2_data[day,"o2_epil"]/input.values$vol_epil[day])/1000)
+      # print((o2_data[day,"o2_epil"]/input.values$vol_epil[day])/1000)
       ##hypo = hypo_o2[i-1]+Fhypo[i] - Fsed[i] + NEP[i]+Fatm[i]
       volumechange_hypo = input.values$vol_hypo[day]-input.values$vol_hypo[day-1]  #in m^3
       volumechange_hypo_proportion =  volumechange_hypo/input.values$vol_hypo[day-1] 
@@ -214,10 +217,10 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       Fatm_hypo <- kO2_hypo*(o2sat_hypo*input.values$vol_hypo[day]-o2_data[day-1,"o2_hypo"] )/(max(H)-input.values$td.depth[day])
       
       o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed #+ NEP_hypo +Fatm_hypo
-      print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
+      # print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
       ## total = hypo+epil
       o2_data[day,"o2_total"] <- o2_data[day,"o2_hypo"] + o2_data[day,"o2_epil"]
-      print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
+      # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
     }
   }
   return (o2_data)
