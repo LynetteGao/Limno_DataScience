@@ -70,9 +70,11 @@ calc_td_depth <- function(wtemp){
     idx = which( years %in% ii)
     ydata = td.depth[idx]
     ydata[ydata[1:200] > 10] = NA
-    movdata = movavg(na.approx(ydata), 40, type = 's')
+    if (all(!is.na(ydata))){
+    movdata = movavg(na.approx(ydata), 7, type = 's')
     td.depth[idx] = NA
     td.depth[idx[min(which(!is.na(ydata)))]:idx[max(which(!is.na(ydata)))]] =movdata
+    }
  }
   
   return(td.depth)
