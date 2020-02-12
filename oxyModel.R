@@ -11,6 +11,7 @@ library(dplyr)
 library(ggplot2)
 library(lubridate)
 library(pracma)
+library(readr)
 library(LakeMetabolizer)
 
 
@@ -44,7 +45,8 @@ source('R/helper.R')
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks[4]){
+for (ii in lks){
+  print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   
   if (length( list.files(ii, pattern = 'observed', include.dirs = T)) > 0){
@@ -71,10 +73,24 @@ for (ii in lks[4]){
   input.values$o2_epil <- o2[,"o2_epil"]
   input.values$o2_hypo <- o2[,"o2_hypo"]
   input.values$o2_total <- o2[,"o2_total"]
+  
+  input.values$year <- year(input.values$datetime)
+  input.values$doy <- yday(input.values$datetime)
+  
+  write_delim(input.values, path = paste0(ii,'/oxymodel.txt'), delim = '\t')
+  
+  g1 <- ggplot(input.values) +
+    geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
+    geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
+    geom_point(aes(doy, (o2_hypo/vol_hypo/1000), col = 'Hypo')) +
+    ylim(0,25)+
+    facet_wrap(~year) +
+    theme_bw()
+  ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300, width=216,height=150,units='mm')
+  print('Nothing got broken, good job!')
 }
 
-input.values$year <- year(input.values$datetime)
-input.values$doy <- yday(input.values$datetime)
+
 
 ggplot(input.values, aes(doy, td.depth)) +
   geom_line() +
@@ -88,13 +104,7 @@ ggplot(subset(input.values, year == '1995')) +
   facet_wrap(~year) +
   theme_bw()
 
-ggplot(input.values) +
-  geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
-  geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
-  geom_point(aes(doy, (o2_hypo/vol_hypo/1000), col = 'Hypo')) +
-  ylim(0,25)+
-  facet_wrap(~year) +
-  theme_bw()
+
 
 model_mse<-function(obs,input.values){
   ndate <- c()
