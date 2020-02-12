@@ -33,6 +33,7 @@ extract_time_space <- function(wtemp){
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
 #' @return vector of thermocline depths in m
 #' @export
+#' 
 calc_td_depth <- function(wtemp){
   
   grd.info <- extract_time_space(wtemp)
@@ -59,12 +60,183 @@ calc_td_depth <- function(wtemp){
     dens.diff = rev(dens_data)[1] - dens_data[1]
     
     if (min(temp_data) > 4 && abs(dens.diff) > 0.1){
-      d.idx = which(td.diff == max(td.diff))[1]
+      d.idx = which(td.diff == max(td.diff)[1])
       td.depth[ii] = depth_data[d.idx]
     } else {td.depth[ii] = NA}
   }
+  years = year(grd.info$datetime)
+  
+  for (ii in unique(years)){
+    idx = which( years %in% ii)
+    ydata = td.depth[idx]
+    ydata[ydata[1:200] > 10] = NA
+    movdata = movavg(na.approx(ydata), 40, type = 's')
+    td.depth[idx] = NA
+    td.depth[idx[min(which(!is.na(ydata)))]:idx[max(which(!is.na(ydata)))]] =movdata
+ }
+  
   return(td.depth)
 }
+# calc_td_depth <- function(wtemp){
+#   
+#   grd.info <- extract_time_space(wtemp)
+#   temp <- as.matrix(wtemp[,-c(1)])
+#   dens <- calc_dens(temp)
+#   td.depth <- rep(NA, length(grd.info$datetime))
+#   
+#   td.diff <- matrix(NA, nrow=length(grd.info$depth), ncol=length(td.depth))
+#   sign.td.diff <- matrix(NA, nrow=length(grd.info$depth), ncol=length(td.depth))
+#   check.td <- rep(NA, length(td.depth),1)
+#   for (ii in 1:length(td.depth)){
+#     # simplify data
+#     idx = which(!is.na(temp[ii,]))
+#     temp_data = temp[ii,idx]
+#     dens_data = dens[ii,idx]
+#     depth_data = as.double(grd.info$depth[idx])
+#     
+#     # td.diff <- rep(NA, length(depth_data))
+#     # forward differencing d rho / d z
+#     td.diff[idx,ii] <- (lead(dens_data) - dens_data)/
+#       (lead(depth_data) - depth_data) 
+#     # backward differencing d rho / d z
+#     td.diff[length(td.diff[idx,ii]),ii] <- (dens_data[nrow(td.diff)] - dens_data[nrow(td.diff)-1])/
+#       (depth_data[nrow(td.diff)] - depth_data[nrow(td.diff)-1]) 
+#     
+#     tz <- which(td.diff[idx,ii] > 0.1)
+#     sign.td.diff[tz,ii] <- td.diff[tz,ii]
+#     
+#     # find density difference between epilimnion and hypolimnion
+#     dens.diff = rev(dens_data)[1] - dens_data[1]
+#     
+#     if (min(temp_data) > 4 && abs(dens.diff) > 0.1){
+#       check.td[ii] <- 1
+#       # d.idx = which(td.diff == max(td.diff))[1]
+#       # td.depth[ii] = depth_data[d.idx]
+#     } else {
+#       check.td[ii] <- NA
+#       # td.depth[ii] = NA
+#       }
+#   }
+#   
+#   contour(x = as.numeric(grd.info$datetime), y = as.numeric(grd.info$depth), z=t(td.diff))
+#   
+#   years <- year(grd.info$datetime)
+#   
+#   for (jj in unique(years)){
+#     idy <- which(years %in% jj)
+#     data = td.diff[,idy]
+#     depth_data = as.double(grd.info$depth)
+#     library(rlist)
+#     td.pks <- c()#rep( list(list()), (ncol(data)) )
+#     for (kk in 1:ncol(data)){
+#      # td.pks[[kk]] <- list.append(td.pks[[kk]], findpeaks(data[,kk])) 
+#       if (!is.null(findpeaks(data[,kk]))){
+#         td.pks <- rbind(td.pks, cbind(findpeaks(data[,kk]), rep(kk, nrow(findpeaks(data[,kk])))))
+#       } else {
+#         td.pks <- rbind(td.pks, matrix(NA,ncol=5,nrow=1)) 
+#       }
+#       
+#     }
+#     periodint <- as.double(na.contiguous(td.pks[,5]))
+#     idx = which((td.pks[,5]) %in% periodint)
+#     td.pks <- as.data.frame(td.pks)
+#     colnames(td.pks) <- c('grad','pos','min','max','doy')
+#     td.df <- td.pks %>%
+#       filter(doy >= min(periodint) & doy <= max(periodint))
+#       
+#     td.depths <- matrix(NA, ncol=10e5,nrow=nrow(data))
+#     test = NULL
+#     timtst = NULL
+#     for (kk in (unique(td.df$doy))){
+#       dat = subset(td.df, doy == kk)
+#         for (oo in 1:nrow(dat)){
+#           
+#           ds = TRUE
+#           hh=kk
+#           
+#           bub = c(dat[oo,2])
+#           ub = c(kk)
+#           if (bub < 45 & !is.na(bub)){
+#           while (ds){
+#             
+#             p1 <- subset(td.df, doy == hh+1)
+#             minimapks <-(p1[,2]-dat[oo,2])
+#             locpks <- which(abs(minimapks) < 5)
+#             if (length(locpks) > 1){
+#               locpks <- which.max(p1[locpks,1])
+#             }
+#             
+#             if (length(locpks) == 0) {
+#               ds = FALSE
+#             } else {
+#             
+#             dat = p1
+#             hh=hh+1
+#             oo = locpks
+#             
+#             bub = append(bub, p1[locpks,2])
+#             ub = append(ub, hh)}
+#           }
+#           pop = rep(NA, 500)
+#           pop[1:length(bub)] = bub
+#           bob = rep(NA, 500)
+#           bob[1:length(ub)] = ub
+#           if (is.null(test)){
+#             test = pop
+#             timtst = bob
+#           } else {
+#             test = cbind(test, pop)
+#             timtst = cbind(timtst, bob)
+#           }
+# }
+#           
+#         }
+#     }
+#     l = c()
+#     for (ii in 1:ncol(test)){
+#       l = append(l, sum(!is.na(test[,ii])))
+#     }
+#     sort(l)
+#     test[,which.max(l)]
+#     timtst[,which.max(l)]
+#     
+#     plot(na.omit(timtst[,which.max(l)]), depth_data[na.omit(test[,which.max(l)])])
+#     
+#     
+#     td.depth <- rep( list(list()), (ncol(data)-1) )#matrix(NA,ncol= ncol(data),nrow= (1000))
+#     for (kk in 1:(ncol(data)-1)){
+#         currentpks <- findpeaks(data[,kk])
+#         nextpks <- findpeaks(data[,kk+1])
+#         if (!is.null(nrow(currentpks))){
+#         for (pp in 1:nrow(currentpks)){
+#           minimapks <-(nextpks[,2]-currentpks[pp,2])
+#           locpks <- which(abs(minimapks) < 2)
+#           if (length(locpks) > 0){
+#           if (length(locpks) > 1){
+#             locpks <- which.max(nextpks[1,locpks])
+#           }
+#           if (( nextpks[locpks,1] - currentpks[pp,1]) > -0.001){
+#             td.depth[[kk]] <- list.append(td.depth[[kk]], depth_data[currentpks[pp,2]])
+#           }
+#           }
+#         }
+#         }
+#     }
+#     test = td.depth[!is.na(td.depth)]
+#     while (any(diff(test[!is.na(test)]) < 0)){
+#       test <- test[!is.na(test)]
+#       td.depth.diff <- (diff(test))
+#       test[td.depth.diff <0] <- NA
+#       test[td.depth.diff > 10] <- NA
+#     }
+#     td.depth.diff <- (diff(test))
+#     test[td.depth.diff <0] <- NA
+#    
+#     
+#   }
+#   
+#   return(td.depth)
+# }
 
 #'
 #' Calculate mean epilimnion and hypolimnion surface temperature,using the thermocline depth

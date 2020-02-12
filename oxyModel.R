@@ -44,7 +44,7 @@ source('R/helper.R')
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks[5]){
+for (ii in lks[4]){
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   
   if (length( list.files(ii, pattern = 'observed', include.dirs = T)) > 0){
@@ -76,8 +76,9 @@ for (ii in lks[5]){
 input.values$year <- year(input.values$datetime)
 input.values$doy <- yday(input.values$datetime)
 
-ggplot(subset(input.values, year == '1979')) +
-  geom_line(aes(doy, td.depth, col = 'Total')) 
+ggplot(input.values, aes(doy, td.depth)) +
+  geom_line() +
+  facet_wrap(~year)
 
 ggplot(subset(input.values, year == '1995')) +
  # geom_line(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
@@ -130,3 +131,4 @@ model_mse<-function(obs,input.values){
   return(test_data)
   }
 model_mse(obs,input.values)
+
