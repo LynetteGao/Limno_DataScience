@@ -112,7 +112,7 @@ ggplot(subset(input.values, year == '1995')) +
 
 
 
-model_mse<-function(obs,input.values){
+compare_predict_versus_observed<-function(obs,input.values){
   ndate <- c()
   for(ii in 1:nrow(obs)){
     if(!is.element(obs$ActivityStartDate[ii],ndate)){
@@ -123,18 +123,21 @@ model_mse<-function(obs,input.values){
   colnames(test_data) <- c("day","observed_epil_do","predict_epil_do","observed_hypo_do","predict_hypo_do",
                            "observed_total_do","predict_total_do")
   test_data <- as.data.frame(test_data)
+  test_data$day<-as.POSIXct(test_data$day)
+ 
   for(jj in 1:length(ndate)){
-    test_data$day[jj]<- as.POSIXct(ndate[jj])
-    for(kk in 1:length(input.values$datetime)){
-      if(year(ndate[jj]) == year(input.values$datetime[kk])
-         &&month(ndate[jj]) == month(input.values$datetime[kk])
-         && day(ndate[jj]) == day(input.values$datetime[kk])
-         )
-        if(is.na(input.values$td.depth[kk])){
+    test_data$day[jj]<-ndate[jj]
+    ##identify the index of the day tested on the output
+    kk = which(year(test_data$day[jj]) == year(input.values$datetime) & 
+                 yday(test_data$day[jj])== yday(input.values$datetime))
+    if(length(kk)!=1){
+      next
+    }
+    if(is.na(input.values$td.depth[kk])){
           test_data$predict_total_do[jj] <- input.values$o2_total[kk]
           test_data$observed_total_do[jj] <- mean(obs[which(obs$ActivityStartDate == ndate[jj]),4],na.rm=TRUE)
-          break
-        }else{
+          next
+    }else{
           td <- input.values$td.depth[kk]
           test_data$predict_epil_do[jj] <- input.values$o2_epil[kk]/input.values$vol_epil[kk]/1000
           test_data$predict_hypo_do[jj] <- input.values$o2_hypo[kk]/input.values$vol_hypo[kk]/1000
@@ -142,13 +145,24 @@ model_mse<-function(obs,input.values){
                                                     ,4],na.rm=TRUE)
           test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4]
                                                 ,na.rm=TRUE)
-          break
         }
-    }
   }
   return(test_data)
   }
-model_mse(obs,input.values)
+test_data<-compare_predict_versus_observed(obs,input.values) 
+
+
+calc_rmse_epil<-function(test_data){
+  predicted <- test_data$predict_epil_do 
+  actual <- test_data$observed_epil_do
+  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
+}
+
+calc_rmse_hypo<-function(test_data){
+  predicted <- test_data$predict_hypo_do
+  actual <- test_data$observed_hypo_do
+  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
+}
 
 
 
