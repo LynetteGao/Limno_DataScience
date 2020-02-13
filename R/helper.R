@@ -407,8 +407,112 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
   return (o2_data)
 }
 
+#' Compares simulated against measured variables
+#' @param obs matrix; observational data
+#' @param input.values data frame, simulaedt data
+#' @return matched data frame of observed and simulated data
+#' @export
+#' 
+compare_predict_versus_observed<-function(obs,input.values){
+  ndate <- c()
+  for(ii in 1:nrow(obs)){
+    if(!is.element(obs$ActivityStartDate[ii],ndate)){
+      ndate<-append(ndate,obs$ActivityStartDate[ii])
+    }
+  }
+  test_data<- matrix(NA, nrow = length(ndate), ncol = 7)  
+  colnames(test_data) <- c("day","observed_epil_do","predict_epil_do","observed_hypo_do","predict_hypo_do",
+                           "observed_total_do","predict_total_do")
+  test_data <- as.data.frame(test_data)
+  test_data$day<-as.POSIXct(test_data$day)
+  
+  for(jj in 1:length(ndate)){
+    test_data$day[jj]<-ndate[jj]
+    ##identify the index of the day tested on the output
+    kk = which(year(test_data$day[jj]) == year(input.values$datetime) & 
+                 yday(test_data$day[jj])== yday(input.values$datetime))
+    if(length(kk)!=1){
+      next
+    }
+    if(is.na(input.values$td.depth[kk])){
+      test_data$predict_total_do[jj] <- input.values$o2_total[kk]
+      test_data$observed_total_do[jj] <- mean(obs[which(obs$ActivityStartDate == ndate[jj]),4],na.rm=TRUE)
+      next
+    }else{
+      td <- input.values$td.depth[kk]
+      test_data$predict_epil_do[jj] <- input.values$o2_epil[kk]/input.values$vol_epil[kk]/1000
+      test_data$predict_hypo_do[jj] <- input.values$o2_hypo[kk]/input.values$vol_hypo[kk]/1000
+      test_data$observed_epil_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue<=td)
+                                                ,4],na.rm=TRUE)
+      test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4]
+                                            ,na.rm=TRUE)
+    }
+  }
+  return(test_data)
+}
+
+#' Calculates RMSE for epilimnion
+#' @param test_data matrix; Matched observed to simulated data
+#' @return double value of RMSE
+#' @export
+#' 
+calc_rmse_epil<-function(test_data){
+  predicted <- test_data$predict_epil_do 
+  actual <- test_data$observed_epil_do
+  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
+}
 
 
+#' Calculates RMSE for hypolimnion
+#' @param test_data matrix; Matched observed to simulated data
+#' @return double value of RMSE
+#' @export
+#' 
+calc_rmse_hypo<-function(test_data){
+  predicted <- test_data$predict_hypo_do
+  actual <- test_data$observed_hypo_do
+  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
+}
+
+#' Calculates RMSE for total lake
+#' @param test_data matrix; Matched observed to simulated data
+#' @return double value of RMSE
+#' @export
+#' 
+calc_rmse <- function(test_data){
+  predicted <- rbind(test_data$predict_hypo_do, test_data$predict_epil_do)
+  actual <- rbind(test_data$observed_hypo_do,test_data$observed_epil_do)
+  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
+}
+
+#' Calculates RMSE for total lake
+#' @param test_data matrix; Matched observed to simulated data
+#' @return double value of RMSE
+#' @export
+#' 
+optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, verbose){
+
+  o2<- calc_do(input.values = input.values,fsed_stratified = p[1],
+               fsed_not_stratified,
+               nep_stratified = p[2],
+               nep_not_stratified)
+  
+  input.values$o2_epil <- o2[,"o2_epil"]
+  input.values$o2_hypo <- o2[,"o2_hypo"]
+  input.values$o2_total <- o2[,"o2_total"]
+  
+  input.values$year <- year(input.values$datetime)
+  input.values$doy <- yday(input.values$datetime)
+  
+  
+  test_data<-compare_predict_versus_observed(obs,input.values) 
+  
+  fit = calc_rmse(test_data)
+  
+  print(paste(round(fit,3)))
+  
+  return(fit)
+}
 
 
 
