@@ -52,16 +52,29 @@ for (ii in lks){
   
   if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){
   wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
-  obs <- data.frame() 
+  # obs <- data.frame() 
   for(jj in wq_data[1:length(wq_data)]){
       raw_obs <- read.csv(jj)
-      filter_obs<-filter(raw_obs,CharacteristicName== "Dissolved oxygen (DO)")
-      more_obs <- filter_obs %>%
+      # filter_obs<-filter(raw_obs,CharacteristicName== "Dissolved oxygen (DO)")
+      # more_obs <- filter_obs %>%
+        # dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+      
+      obs <- raw_obs %>%
+        dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
         dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
-      obs<-rbind(obs,more_obs)
+        
+      # obs<-rbind(obs,more_obs)
   }
   obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
   }
+  
+  if (is.factor(obs$ActivityDepthHeightMeasure.MeasureValue)){
+    obs$ActivityDepthHeightMeasure.MeasureValue <-  as.numeric(as.character(obs$ActivityDepthHeightMeasure.MeasureValue))
+  }
+  if (is.factor(obs$ResultMeasureValue)){
+    obs$ResultMeasureValue <-  as.numeric(as.character(obs$ResultMeasureValue))
+  }
+  
   
   eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
   H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))

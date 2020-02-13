@@ -420,6 +420,10 @@ compare_predict_versus_observed<-function(obs,input.values){
       ndate<-append(ndate,obs$ActivityStartDate[ii])
     }
   }
+  
+  # consider this:
+  # ndate <- unique(obs$ActivityStartDate)
+  
   test_data<- matrix(NA, nrow = length(ndate), ncol = 7)  
   colnames(test_data) <- c("day","observed_epil_do","predict_epil_do","observed_hypo_do","predict_hypo_do",
                            "observed_total_do","predict_total_do")
@@ -442,6 +446,7 @@ compare_predict_versus_observed<-function(obs,input.values){
       td <- input.values$td.depth[kk]
       test_data$predict_epil_do[jj] <- input.values$o2_epil[kk]/input.values$vol_epil[kk]/1000
       test_data$predict_hypo_do[jj] <- input.values$o2_hypo[kk]/input.values$vol_hypo[kk]/1000
+      # here the mean functions will weigh the result, which will give different values in contrast to our integrated approach
       test_data$observed_epil_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue<=td)
                                                 ,4],na.rm=TRUE)
       test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4]
