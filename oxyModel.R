@@ -49,36 +49,42 @@ for (ii in lks){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   
-  if (length( list.files(ii, pattern = 'observed', include.dirs = T)) > 0){
-    raw_obs <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'observed', include.dirs = T)))
-    obs <- raw_obs %>%
-      dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
-    obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
+  if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){
+  wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
+  obs <- data.frame() 
+  for(jj in wq_data[1:length(wq_data)]){
+      raw_obs <- read.csv(jj)
+      filter_obs<-filter(raw_obs,CharacteristicName== "Dissolved oxygen (DO)")
+      more_obs <- filter_obs %>%
+        dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+      obs<-rbind(obs,more_obs)
+  }
+  obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
   }
   
   eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
   H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))
   A <- eg_nml$morphometry$A
-  
-  # here's the promised input function (see R/helper.R), you can add the volume and 
+
+  # here's the promised input function (see R/helper.R), you can add the volume and
   # temperature conversion there
   input.values <- input(wtemp = data, H = H, A = A)
-  
+
   fsed_stratified = 0.01 *100
   fsed_not_stratified  =  0.0002
   nep_stratified = 0.1
   nep_not_stratified = 0
-  
+
   o2<- calc_do(input.values = input.values,fsed_stratified,fsed_not_stratified,nep_stratified,nep_not_stratified)
   input.values$o2_epil <- o2[,"o2_epil"]
   input.values$o2_hypo <- o2[,"o2_hypo"]
   input.values$o2_total <- o2[,"o2_total"]
-  
+
   input.values$year <- year(input.values$datetime)
   input.values$doy <- yday(input.values$datetime)
-  
+
   write_delim(input.values, path = paste0(ii,'/oxymodel.txt'), delim = '\t')
-  
+
   g1 <- ggplot(input.values) +
     geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
     geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
@@ -106,7 +112,7 @@ ggplot(subset(input.values, year == '1995')) +
 
 
 
-model_mse<-function(obs,input.values){
+compare_predict_versus_observed<-function(obs,input.values){
   ndate <- c()
   for(ii in 1:nrow(obs)){
     if(!is.element(obs$ActivityStartDate[ii],ndate)){
@@ -117,28 +123,58 @@ model_mse<-function(obs,input.values){
   colnames(test_data) <- c("day","observed_epil_do","predict_epil_do","observed_hypo_do","predict_hypo_do",
                            "observed_total_do","predict_total_do")
   test_data <- as.data.frame(test_data)
+  test_data$day<-as.POSIXct(test_data$day)
+ 
   for(jj in 1:length(ndate)){
-    test_data$day[jj]<- as.POSIXct(ndate[jj])
-    for(kk in 1:length(input.values$datetime)){
-      if(year(ndate[jj]) == year(input.values$datetime[kk])
-         &&month(ndate[jj]) == month(input.values$datetime[kk])
-         && day(ndate[jj]) == day(input.values$datetime[kk])
-         )
-        if(is.na(input.values$td.depth[kk])){
+    test_data$day[jj]<-ndate[jj]
+    ##identify the index of the day tested on the output
+    kk = which(year(test_data$day[jj]) == year(input.values$datetime) & 
+                 yday(test_data$day[jj])== yday(input.values$datetime))
+    if(length(kk)!=1){
+      next
+    }
+    if(is.na(input.values$td.depth[kk])){
           test_data$predict_total_do[jj] <- input.values$o2_total[kk]
-          test_data$observed_total_do[jj] <- mean(obs[which(obs$ActivityStartDate == ndate[jj]),4])
-          break
-        }else{
+          test_data$observed_total_do[jj] <- mean(obs[which(obs$ActivityStartDate == ndate[jj]),4],na.rm=TRUE)
+          next
+    }else{
           td <- input.values$td.depth[kk]
           test_data$predict_epil_do[jj] <- input.values$o2_epil[kk]/input.values$vol_epil[kk]/1000
           test_data$predict_hypo_do[jj] <- input.values$o2_hypo[kk]/input.values$vol_hypo[kk]/1000
-          test_data$observed_epil_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue<=td),4])
-          test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4])
-          break
+          test_data$observed_epil_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue<=td)
+                                                    ,4],na.rm=TRUE)
+          test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4]
+                                                ,na.rm=TRUE)
         }
-    }
   }
   return(test_data)
   }
-model_mse(obs,input.values)
+test_data<-compare_predict_versus_observed(obs,input.values) 
+
+
+calc_rmse_epil<-function(test_data){
+  predicted <- test_data$predict_epil_do 
+  actual <- test_data$observed_epil_do
+  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
+}
+
+calc_rmse_hypo<-function(test_data){
+  predicted <- test_data$predict_hypo_do
+  actual <- test_data$observed_hypo_do
+  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
