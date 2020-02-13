@@ -13,13 +13,14 @@ library(lubridate)
 library(pracma)
 library(readr)
 library(LakeMetabolizer)
+library(adagio)
 
 
 devtools::install_github('LynetteGao/Limno_DataScience')
 library(simpleAnoxia)
 
 ## source all functions
-source('R/helper.R')
+# source('R/helper.R')
 
 # # load shapefiles
 # library(sf)
@@ -74,8 +75,20 @@ for (ii in lks){
   fsed_not_stratified  =  0.0002
   nep_stratified = 0.1
   nep_not_stratified = 0
+  
+  init.val = c(0.01, 0.1)
+  target.iter = 20
+  modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5),
+                          upper = c(0.1, 0.5), adapt = TRUE, tol = 1e-2,
+                          maxfeval = target.iter, input.values = input.values,
+                          fsed_not_stratified = fsed_not_stratified, 
+                          nep_not_stratified = nep_not_stratified, verbose = verbose)
 
-  o2<- calc_do(input.values = input.values,fsed_stratified,fsed_not_stratified,nep_stratified,nep_not_stratified)
+  o2<- calc_do(input.values = input.values,fsed_stratified = modelopt$xmin[1],
+               fsed_not_stratified,
+               nep_stratified = modelopt$xmin[2],
+               nep_not_stratified)
+  
   input.values$o2_epil <- o2[,"o2_epil"]
   input.values$o2_hypo <- o2[,"o2_hypo"]
   input.values$o2_total <- o2[,"o2_total"]
@@ -93,88 +106,11 @@ for (ii in lks){
     facet_wrap(~year) +
     theme_bw()
   ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300, width=216,height=150,units='mm')
+  
+  g2 <- ggplot(input.values, aes(doy, td.depth)) +
+    geom_line() +
+    facet_wrap(~year) +
+    theme_bw()
+  ggsave(file = paste0(ii,'/predicted_td.png'), g2, dpi=300, width=216,height=150,units='mm')
   print('Nothing got broken, good job!')
 }
-
-
-
-ggplot(input.values, aes(doy, td.depth)) +
-  geom_line() +
-  facet_wrap(~year)
-
-ggplot(subset(input.values, year == '1995')) +
- # geom_line(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
-  geom_line(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
-  geom_line(aes(doy, (o2_hypo/vol_hypo/1000), col = 'Hypo')) +
-  # ylim(-10, 1e30)+
-  facet_wrap(~year) +
-  theme_bw()
-
-
-
-compare_predict_versus_observed<-function(obs,input.values){
-  ndate <- c()
-  for(ii in 1:nrow(obs)){
-    if(!is.element(obs$ActivityStartDate[ii],ndate)){
-      ndate<-append(ndate,obs$ActivityStartDate[ii])
-    }
-  }
-  test_data<- matrix(NA, nrow = length(ndate), ncol = 7)  
-  colnames(test_data) <- c("day","observed_epil_do","predict_epil_do","observed_hypo_do","predict_hypo_do",
-                           "observed_total_do","predict_total_do")
-  test_data <- as.data.frame(test_data)
-  test_data$day<-as.POSIXct(test_data$day)
- 
-  for(jj in 1:length(ndate)){
-    test_data$day[jj]<-ndate[jj]
-    ##identify the index of the day tested on the output
-    kk = which(year(test_data$day[jj]) == year(input.values$datetime) & 
-                 yday(test_data$day[jj])== yday(input.values$datetime))
-    if(length(kk)!=1){
-      next
-    }
-    if(is.na(input.values$td.depth[kk])){
-          test_data$predict_total_do[jj] <- input.values$o2_total[kk]
-          test_data$observed_total_do[jj] <- mean(obs[which(obs$ActivityStartDate == ndate[jj]),4],na.rm=TRUE)
-          next
-    }else{
-          td <- input.values$td.depth[kk]
-          test_data$predict_epil_do[jj] <- input.values$o2_epil[kk]/input.values$vol_epil[kk]/1000
-          test_data$predict_hypo_do[jj] <- input.values$o2_hypo[kk]/input.values$vol_hypo[kk]/1000
-          test_data$observed_epil_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue<=td)
-                                                    ,4],na.rm=TRUE)
-          test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4]
-                                                ,na.rm=TRUE)
-        }
-  }
-  return(test_data)
-  }
-test_data<-compare_predict_versus_observed(obs,input.values) 
-
-
-calc_rmse_epil<-function(test_data){
-  predicted <- test_data$predict_epil_do 
-  actual <- test_data$observed_epil_do
-  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
-}
-
-calc_rmse_hypo<-function(test_data){
-  predicted <- test_data$predict_hypo_do
-  actual <- test_data$observed_hypo_do
-  return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
