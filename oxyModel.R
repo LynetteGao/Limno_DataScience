@@ -1,3 +1,4 @@
+1+1 
 rm(list = ls())
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
