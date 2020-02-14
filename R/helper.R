@@ -69,13 +69,15 @@ calc_td_depth <- function(wtemp){
   for (ii in unique(years)){
     idx = which( years %in% ii)
     ydata = td.depth[idx]
-    ydata[ydata[1:200] > 10] = NA
-    if (all(!is.na(ydata))){
-    ydata = na.approx(ydata)
+    # ydata[ydata[1:200] > 10] = NA
+
+    
    
     
-    testdata = data.frame('depth' = (ydata), 'time' = seq(1,length(ydata)))
-    if (all(!is.na(ydata))){
+   
+    if (all(is.na(ydata)) == FALSE){
+      ydata = na.approx(ydata)
+      testdata = data.frame('depth' = (ydata), 'time' = seq(1,length(ydata)))
       # exponential.model <- lm(log(depth)~ time, data = testdata)
       poly.model <- lm(depth ~ poly(time,3), data = testdata)
       # expdata = predict(exponential.model)
@@ -86,7 +88,7 @@ calc_td_depth <- function(wtemp){
     # td.depth[idx] = NA
     # td.depth[idx[min(which(!is.na(ydata)))]:idx[max(which(!is.na(ydata)))]] =movdata
     }
-    }
+    
     
   }
   td.depth[td.depth < 0] = NA
