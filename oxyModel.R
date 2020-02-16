@@ -90,7 +90,7 @@ for (ii in lks){
   nep_not_stratified = 0
   
   init.val = c(0.01, 0.1)
-  target.iter = 3
+  target.iter = 5
   modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5),
                           upper = c(1.0, 0.5), adapt = TRUE, tol = 1e-2,
                           maxfeval = target.iter, input.values = input.values,

@@ -39,6 +39,19 @@ calc_td_depth <- function(wtemp){
   grd.info <- extract_time_space(wtemp)
   temp <- as.matrix(wtemp[,-c(1)])
   dens <- calc_dens(temp)
+  
+  cbuoy.depth <- rep(NA, length(grd.info$datetime))
+  
+  for (ii in 1:length(cbuoy.depth)){
+    idx = !is.na(temp[ii,])
+    dens_data = dens[ii,idx]
+    dens.diff = rev(dens_data)[1] - dens_data[1]
+    
+    if (min(temp[ii,],na.rm=TRUE) > 4 && abs(dens.diff) > 0.1){
+    cbuoy.depth[ii] <- center.buoyancy(temp[ii,], as.numeric(grd.info$depth))
+    }
+  }
+  
   td.depth <- rep(NA, length(grd.info$datetime))
   
   for (ii in 1:length(td.depth)){
@@ -93,7 +106,7 @@ calc_td_depth <- function(wtemp){
   }
   td.depth[td.depth < 0] = NA
   
-  return(td.depth)
+  return(cbuoy.depth)
 }
 
 
