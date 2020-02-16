@@ -503,14 +503,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
 #' 
 compare_predict_versus_observed<-function(obs,input.values){
   ndate <- c()
-  for(ii in 1:nrow(obs)){
-    if(!is.element(obs$ActivityStartDate[ii],ndate)){
-      ndate<-append(ndate,obs$ActivityStartDate[ii])
-    }
-  }
-  
-  # consider this:
-  # ndate <- unique(obs$ActivityStartDate)
+  ndate <- unique(obs$ActivityStartDate)
   
   test_data<- matrix(NA, nrow = length(ndate), ncol = 7)  
   colnames(test_data) <- c("day","observed_epil_do","predict_epil_do","observed_hypo_do","predict_hypo_do",
@@ -520,7 +513,7 @@ compare_predict_versus_observed<-function(obs,input.values){
   
   for(jj in 1:length(ndate)){
     test_data$day[jj]<-ndate[jj]
-    ##identify the index of the day tested on the output
+    ##identify the index of the day from input values tested on the output
     kk = which(year(test_data$day[jj]) == year(input.values$datetime) & 
                  yday(test_data$day[jj])== yday(input.values$datetime))
     if(length(kk)!=1){
@@ -528,17 +521,31 @@ compare_predict_versus_observed<-function(obs,input.values){
     }
     if(is.na(input.values$td.depth[kk])){
       test_data$predict_total_do[jj] <- input.values$o2_total[kk]
-      test_data$observed_total_do[jj] <- mean(obs[which(obs$ActivityStartDate == ndate[jj]),4],na.rm=TRUE)
+      
+      obs_data<-  obs %>% filter(ActivityStartDate == ndate[jj]) %>% 
+        slice(which.max(ActivityDepthHeightMeasure.MeasureValue)) 
+      test_data$observed_total_do[jj] <- obs_data$ResultMeasureValue
+      
       next
     }else{
       td <- input.values$td.depth[kk]
       test_data$predict_epil_do[jj] <- input.values$o2_epil[kk]/input.values$vol_epil[kk]/1000
       test_data$predict_hypo_do[jj] <- input.values$o2_hypo[kk]/input.values$vol_hypo[kk]/1000
       # here the mean functions will weigh the result, which will give different values in contrast to our integrated approach
-      test_data$observed_epil_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue<=td)
-                                                ,4],na.rm=TRUE)
-      test_data$observed_hypo_do[jj]<- mean(obs[which(obs$ActivityStartDate == ndate[jj]&obs$ActivityDepthHeightMeasure.MeasureValue>td),4]
-                                            ,na.rm=TRUE)
+      
+      #shallowest layer in epi;
+      obs_data_epil<- obs %>% filter(ActivityStartDate == ndate[jj]) %>% 
+        filter(ActivityDepthHeightMeasure.MeasureValue<=td) %>%  slice(which.min(ActivityDepthHeightMeasure.MeasureValue)) 
+      if(!nrow(obs_data_epil)==0){
+      test_data$observed_epil_do[jj]<- obs_data_epil$ResultMeasureValue
+      }
+      
+      #deepset layer in hypo
+      obs_data_hypo<- obs %>% filter(ActivityStartDate == ndate[jj]) %>% 
+        filter(ActivityDepthHeightMeasure.MeasureValue>td) %>%  slice(which.max(ActivityDepthHeightMeasure.MeasureValue)) 
+      if(!nrow(obs_data_hypo)==0){
+      test_data$observed_hypo_do[jj]<-obs_data_hypo$ResultMeasureValue
+      }
     }
   }
   return(test_data)
