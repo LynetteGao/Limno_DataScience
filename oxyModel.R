@@ -89,8 +89,8 @@ for (ii in lks){
   nep_stratified = 0.1
   nep_not_stratified = 0
   
-  init.val = c(0.01, 0.1)
-  target.iter = 5
+  init.val = c(0.5, 0.1)
+  target.iter = 10
   modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5),
                           upper = c(1.0, 0.5), adapt = TRUE, tol = 1e-2,
                           maxfeval = target.iter, input.values = input.values,
@@ -135,5 +135,16 @@ for (ii in lks){
     facet_wrap(~year) +
     theme_bw()
   ggsave(file = paste0(ii,'/predicted_td.png'), g2, dpi=300, width=216,height=150,units='mm')
+  
+
+  g3 <- ggplot(test_data, aes(observed_hypo_do, predict_hypo_do, col = 'hypolimnion')) +
+    geom_point() +
+    geom_point(aes(observed_epil_do, predict_epil_do, col = 'epilimnion')) +
+    ylim(0,25)+
+    xlim(0,25)+
+    theme_bw()
+  ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=216,height=216,units='mm')
+  
+    
   print('Nothing got broken, good job!')
 }
