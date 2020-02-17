@@ -16,7 +16,7 @@ library(LakeMetabolizer)
 library(adagio)
 library(zoo)
 
-devtools::install_github('LynetteGao/Limno_DataScience')
+#devtools::install_github('LynetteGao/Limno_DataScience')
 library(simpleAnoxia)
 
 ## source all functions
@@ -90,7 +90,7 @@ for (ii in lks){
   nep_not_stratified = 0
   
   init.val = c(0.01, 0.1)
-  target.iter = 10
+  target.iter = 5
   modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5),
                           upper = c(1.0, 0.5), adapt = TRUE, tol = 1e-2,
                           maxfeval = target.iter, input.values = input.values,
@@ -109,7 +109,17 @@ for (ii in lks){
   input.values$year <- year(input.values$datetime)
   input.values$doy <- yday(input.values$datetime)
 
-  write_delim(input.values, path = paste0(ii,'/oxymodel.txt'), delim = '\t')
+  
+  test_data<-compare_predict_versus_observed(obs,input.values) 
+  
+  fit = calc_rmse(test_data)
+  
+  pgm <- input.values %>%
+    dplyr::select(datetime, o2_epil, o2_hypo, o2_total, vol_epil, vol_hypo, 'vol_total' = total_vol)
+  
+  write_delim(input.values, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_',round(fit,1),'_alldata.txt'), delim = '\t')
+  write_delim(pgm, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_',round(fit,1),'_oxymodel.txt'), delim = '\t')
+  write_delim(obs, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_obs.txt'), delim = '\t')
 
   g1 <- ggplot(input.values) +
     geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +

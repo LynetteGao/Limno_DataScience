@@ -39,6 +39,19 @@ calc_td_depth <- function(wtemp){
   grd.info <- extract_time_space(wtemp)
   temp <- as.matrix(wtemp[,-c(1)])
   dens <- calc_dens(temp)
+  
+  cbuoy.depth <- rep(NA, length(grd.info$datetime))
+  
+  for (ii in 1:length(cbuoy.depth)){
+    idx = !is.na(temp[ii,])
+    dens_data = dens[ii,idx]
+    dens.diff = rev(dens_data)[1] - dens_data[1]
+    
+    if (min(temp[ii,],na.rm=TRUE) > 4 && abs(dens.diff) > 0.1){
+    cbuoy.depth[ii] <- center.buoyancy(temp[ii,], as.numeric(grd.info$depth))
+    }
+  }
+  
   td.depth <- rep(NA, length(grd.info$datetime))
   
   for (ii in 1:length(td.depth)){
@@ -69,29 +82,31 @@ calc_td_depth <- function(wtemp){
   for (ii in unique(years)){
     idx = which( years %in% ii)
     ydata = td.depth[idx]
-    ydata[ydata[1:200] > 10] = NA
-    if (all(!is.na(ydata))){
-    ydata = na.approx(ydata)
-   
+    # ydata[ydata[1:200] > 10] = NA
+
     
-    testdata = data.frame('depth' = (ydata), 'time' = seq(1,length(ydata)))
-    if (all(!is.na(ydata))){
-      # exponential.model <- lm(log(depth)~ time, data = testdata)
-      poly.model <- lm(depth ~ poly(time,3), data = testdata)
-      # expdata = predict(exponential.model)
-      polydata = predict(poly.model)
-      td.depth[idx[min(which(!is.na(td.depth[idx])))]:idx[max(which(!is.na(td.depth[idx])))]] =as.numeric(polydata)
-      
-    # movdata = movavg(na.approx(ydata), 7, type = 's')
-    # td.depth[idx] = NA
-    # td.depth[idx[min(which(!is.na(ydata)))]:idx[max(which(!is.na(ydata)))]] =movdata
-    }
-    }
+   
+
+    
+     if (all(is.na(ydata)) == FALSE){
+       ydata = na.approx(ydata)
+       testdata = data.frame('depth' = (ydata), 'time' = seq(1,length(ydata)))
+    #   # exponential.model <- lm(log(depth)~ time, data = testdata)
+       poly.model <- lm(depth ~ poly(time,3), data = testdata)
+    #   # expdata = predict(exponential.model)
+       polydata = predict(poly.model)
+       td.depth[idx[min(which(!is.na(td.depth[idx])))]:idx[max(which(!is.na(td.depth[idx])))]] =as.numeric(polydata)
+    #
+    # # movdata = movavg(na.approx(ydata), 7, type = 's')
+    # # td.depth[idx] = NA
+    # # td.depth[idx[min(which(!is.na(ydata)))]:idx[max(which(!is.na(ydata)))]] =movdata
+     }
+
     
   }
   td.depth[td.depth < 0] = NA
   
-  return(td.depth)
+  return(cbuoy.depth)
 }
 
 
@@ -444,13 +459,19 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       o2sat_epil<-o2.at.sat.base(temp=input.values$t.epil[day],altitude = 300)*1000
       Fatm_epil <- kO2_epil*(o2sat_epil*input.values$vol_epil[day]-o2_data[day-1,"o2_epil"] )/input.values$td.depth[day] #possible wrong z
       
-      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"]+NEP_epil+Fatm_epil
-      print((o2_data[day,"o2_epil"]/input.values$vol_epil[day])/1000)
-      
-      ##hypo = hypo_o2[i-1]+Fhypo[i] - Fsed[i] + NEP[i]+Fatm[i]
       volumechange_hypo = input.values$vol_hypo[day]-input.values$vol_hypo[day-1]  #in m^3
       volumechange_hypo_proportion =  volumechange_hypo/input.values$vol_hypo[day-1] 
       Fhypo <- volumechange_hypo_proportion* o2_data[day-1,"o2_hypo"]
+      
+      volumechange_epi = input.values$vol_epil[day]-input.values$vol_epil[day-1]  #in m^3
+      volumechange_epi_proportion =  volumechange_epi/input.values$vol_epil[day-1] 
+      Fepi <- volumechange_epi_proportion* o2_data[day-1,"o2_epil"]
+      
+      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"]+NEP_epil+Fatm_epil + Fepi
+      print((o2_data[day,"o2_epil"]/input.values$vol_epil[day])/1000)
+      
+      ##hypo = hypo_o2[i-1]+Fhypo[i] - Fsed[i] + NEP[i]+Fatm[i]
+ 
       
       Fsed <- fsed_stratified *o2_data[day-1,"o2_hypo"]/(max(H) - input.values$td.depth[day] ) * theta_hypo
       
