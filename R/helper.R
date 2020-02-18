@@ -485,17 +485,17 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
                     o2_data[day-1,"o2_hypo"])
       
       o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed #+ NEP_hypo +Fatm_hypo
-<<<<<<< HEAD
-      if(o2_data[day,"o2_hypo"]  < 0){
-        o2_data[day,"o2_hypo"]  = 0
-      }
+# <<<<<<< HEAD
+#       if(o2_data[day,"o2_hypo"]  < 0){
+#         o2_data[day,"o2_hypo"]  = 0
+#       }
       # print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
       ## total = hypo+epil
-=======
-      print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
+
+      #print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
      
        ## total = hypo+epil
->>>>>>> 2c9d779da14050beb33405ebd407ef0f1a858ad2
+
       o2_data[day,"o2_total"] <- o2_data[day,"o2_hypo"] + o2_data[day,"o2_epil"]
       # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
     }
