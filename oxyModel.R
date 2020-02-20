@@ -46,23 +46,30 @@ library(simpleAnoxia)
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks){
+for (ii in lks[-9]){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   
+  
   if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){
   wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
+  obs <- NULL
   # obs <- data.frame() 
-  for(jj in wq_data[1:length(wq_data)]){
+  for(jj in wq_data){
       raw_obs <- read.csv(jj)
       # filter_obs<-filter(raw_obs,CharacteristicName== "Dissolved oxygen (DO)")
       # more_obs <- filter_obs %>%
         # dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
       
-      obs <- raw_obs %>%
+      wq <- raw_obs %>%
         dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
         dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
         
+      if (length(wq_data) == 1 | is.null(obs)){
+        obs <- wq
+      } else {
+        obs <- rbind(obs, wq)
+      }
       # obs<-rbind(obs,more_obs)
   }
   obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
