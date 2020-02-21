@@ -46,23 +46,30 @@ library(simpleAnoxia)
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks){
+for (ii in lks[-9]){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   
+  
   if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){
   wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
+  obs <- NULL
   # obs <- data.frame() 
-  for(jj in wq_data[1:length(wq_data)]){
+  for(jj in wq_data){
       raw_obs <- read.csv(jj)
       # filter_obs<-filter(raw_obs,CharacteristicName== "Dissolved oxygen (DO)")
       # more_obs <- filter_obs %>%
         # dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
       
-      obs <- raw_obs %>%
+      wq <- raw_obs %>%
         dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
         dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
         
+      if (length(wq_data) == 1 | is.null(obs)){
+        obs <- wq
+      } else {
+        obs <- rbind(obs, wq)
+      }
       # obs<-rbind(obs,more_obs)
   }
   obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
@@ -89,8 +96,8 @@ for (ii in lks){
   nep_stratified = 0.1
   nep_not_stratified = 0
   
-  init.val = c(0.01, 0.1)
-  target.iter = 5
+  init.val = c(0.5, 0.1)
+  target.iter = 10
   modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5),
                           upper = c(1.0, 0.5), adapt = TRUE, tol = 1e-2,
                           maxfeval = target.iter, input.values = input.values,
@@ -135,5 +142,16 @@ for (ii in lks){
     facet_wrap(~year) +
     theme_bw()
   ggsave(file = paste0(ii,'/predicted_td.png'), g2, dpi=300, width=216,height=150,units='mm')
+  
+
+  g3 <- ggplot(test_data, aes(observed_hypo_do, predict_hypo_do, col = 'hypolimnion')) +
+    geom_point() +
+    geom_point(aes(observed_epil_do, predict_epil_do, col = 'epilimnion')) +
+    ylim(0,25)+
+    xlim(0,25)+
+    theme_bw()
+  ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=216,height=216,units='mm')
+  
+    
   print('Nothing got broken, good job!')
 }

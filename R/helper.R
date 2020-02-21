@@ -443,7 +443,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
                     o2_data[day-1,"o2_total"])# mg/m * m/d = mg/d
       
       o2_data[day,"o2_total"] <- o2_data[day-1,"o2_total"] - Fsed + NEP + Fatm # units make sense bc every term is actually multiplied
-      print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
+      # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
       # with delta t
     }
     # the day it turns to stratified, need to reassign the o2 to hypo and epil
@@ -473,7 +473,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
                      o2_data[day-1,"o2_epil"])
       
       o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"]+NEP_epil+Fatm_epil + Fepi
-      print((o2_data[day,"o2_epil"]/input.values$vol_epil[day])/1000)
+      # print((o2_data[day,"o2_epil"]/input.values$vol_epil[day])/1000)
       
       ##hypo = hypo_o2[i-1]+Fhypo[i] - Fsed[i] 
       volumechange_hypo = input.values$vol_hypo[day]-input.values$vol_hypo[day-1]  #in m^3
@@ -485,11 +485,19 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
                     o2_data[day-1,"o2_hypo"])
       
       o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed #+ NEP_hypo +Fatm_hypo
-      print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
+# <<<<<<< HEAD
+#       if(o2_data[day,"o2_hypo"]  < 0){
+#         o2_data[day,"o2_hypo"]  = 0
+#       }
+      # print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
+      ## total = hypo+epil
+
+      #print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
      
        ## total = hypo+epil
+
       o2_data[day,"o2_total"] <- o2_data[day,"o2_hypo"] + o2_data[day,"o2_epil"]
-      print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
+      # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
     }
     if (is.na(o2_data[day, "o2_total"])) {
       break
@@ -613,7 +621,7 @@ optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stra
   
   fit = calc_rmse(test_data)
   
-  print(paste(round(fit,3)))
+  print(paste(round(p[1],2),round(p[2],2),'with RMSE: ',round(fit,3)))
   
   return(fit)
 }
