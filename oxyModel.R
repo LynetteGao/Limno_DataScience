@@ -145,8 +145,8 @@ for (ii in lks[-8]){
     ylim(0,20)+
     facet_wrap(~year) +
     theme_bw() +
-    geom_point(data = test_data, aes(doy, observed_epil_do, col = 'Obs_Epi'), size =2) +
-    geom_point(data = test_data, aes(doy, observed_hypo_do, col = 'Obs_Hypo'), size =2)
+    geom_point(data = test_data, aes(doy, observed_epil_do, col = 'Obs_Epi'), size =2, alpha = 0.5) +
+    geom_point(data = test_data, aes(doy, observed_hypo_do, col = 'Obs_Hypo'), size =2, alpha = 0.5)
   ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300, width=216,height=150,units='mm')
   
   g2 <- ggplot(input.values, aes(doy, td.depth)) +
