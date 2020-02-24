@@ -415,7 +415,8 @@ input <- function(wtemp, H, A){
 #' @return list of datetimes and depths
 #' @export
 #' 
-calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratified,nep_not_stratified){
+calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratified,nep_not_stratified,
+                  min_stratified, min_not_stratified, wind = NULL){
   ##initialize the o2(hypo),o2(epil),o2(total)
   o2_data <- matrix(NA, nrow = length(input.values$td.depth), ncol = 3)
   colnames(o2_data) <- c("o2_epil","o2_hypo","o2_total")
@@ -424,14 +425,23 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
   init_o2sat <- o2.at.sat.base(temp=input.values$t.total[1],altitude = 300)*1000 # returns mg O2/L 
   o2_data$o2_total[1] <- init_o2sat*input.values$total_vol[1] # returns mg O2 (m3 = 1000 L)
   
-  K600 <- k.cole.base(2) # returns m/day, assuming low wind conditions
   theta<-1.08
   for(day in 2:length(input.values$td.depth)){
+    
+    if (is.null(wind)){
+      K600 <- k.cole.base(2) # returns m/day, assuming low wind conditions --> change to dynamic
+    } else {
+      K600 <- k.cole.base(wind[day])
+    }
+    
     ## not stratified period, only consider the o2(total)
     if(is.na(input.values$td.depth[day])){
       theta_total <- theta^(input.values$t.total[day]-20)
       
       NEP <- valid(nep_not_stratified * input.values$total_vol[day] * theta_total,
+                   o2_data[day-1,"o2_total"])
+      
+      MINER <- valid(min_not_stratified * input.values$total_vol[day] * theta_total,
                    o2_data[day-1,"o2_total"])
       
       kO2 <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.total[day],gas='O2') # velocity value m/d?
@@ -442,7 +452,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       Fsed <- valid(fsed_not_stratified * o2_data[day-1,"o2_total"]/max(H) * theta_total,
                     o2_data[day-1,"o2_total"])# mg/m * m/d = mg/d
       
-      o2_data[day,"o2_total"] <- o2_data[day-1,"o2_total"] - Fsed + NEP + Fatm # units make sense bc every term is actually multiplied
+      o2_data[day,"o2_total"] <- o2_data[day-1,"o2_total"] - Fsed + NEP + Fatm + MINER# units make sense bc every term is actually multiplied
       # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
       # with delta t
     }
@@ -481,10 +491,13 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       Fhypo <- valid(volumechange_hypo_proportion* o2_data[day-1,"o2_hypo"],
                      o2_data[day-1,"o2_hypo"])
       
+      MINER_hypo <- valid(min_stratified * input.values$vol_hypo[day] * theta_hypo,
+                        o2_data[day-1,"o2_hypo"])# has to return mg/d, mg/m3/d * m3
+      
       Fsed <- valid(fsed_stratified *o2_data[day-1,"o2_hypo"]/(max(H) - input.values$td.depth[day] ) * theta_hypo,
                     o2_data[day-1,"o2_hypo"])
       
-      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed #+ NEP_hypo +Fatm_hypo
+      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed + MINER_hypo#+ NEP_hypo +Fatm_hypo
 # <<<<<<< HEAD
 #       if(o2_data[day,"o2_hypo"]  < 0){
 #         o2_data[day,"o2_hypo"]  = 0
@@ -602,12 +615,16 @@ calc_rmse <- function(test_data){
 #' @return double value of RMSE
 #' @export
 #' 
-optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, verbose){
+optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, min_not_stratified = 0.0,
+                     wind = NULL, 
+                     verbose){
 
   o2<- calc_do(input.values = input.values,fsed_stratified = p[1],
                fsed_not_stratified,
                nep_stratified = p[2],
-               nep_not_stratified)
+               nep_not_stratified,
+               min_stratified = p[3],
+               min_not_stratified, wind)
   
   input.values$o2_epil <- o2[,"o2_epil"]
   input.values$o2_hypo <- o2[,"o2_hypo"]
@@ -621,7 +638,7 @@ optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stra
   
   fit = calc_rmse(test_data)
   
-  print(paste(round(p[1],2),round(p[2],2),'with RMSE: ',round(fit,3)))
+  print(paste(round(p[1],2),round(p[2],2),round(p[3],2),'with RMSE: ',round(fit,3)))
   
   return(fit)
 }

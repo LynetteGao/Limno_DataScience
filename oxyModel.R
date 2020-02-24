@@ -46,10 +46,13 @@ library(simpleAnoxia)
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks[-9]){
+for (ii in lks[-8]){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
+  meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T)))
   
+  chidx <- match(as.POSIXct(data$date),as.POSIXct(meteo$time))
+  wind <- meteo$WindSpeed[chidx]
   
   if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){
   wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
@@ -95,19 +98,24 @@ for (ii in lks[-9]){
   fsed_not_stratified  =  0.0002
   nep_stratified = 0.1
   nep_not_stratified = 0
+  min_stratified = 0.1
+  min_not_stratified = 0
   
-  init.val = c(0.5, 0.1)
-  target.iter = 10
-  modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5),
-                          upper = c(1.0, 0.5), adapt = TRUE, tol = 1e-2,
+  init.val = c(0.5, 0.1, 0.01)
+  target.iter = 25
+  modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5, -0.1),
+                          upper = c(1.0, 0.5, 0.1), adapt = TRUE, tol = 1e-2,
                           maxfeval = target.iter, input.values = input.values,
                           fsed_not_stratified = fsed_not_stratified, 
-                          nep_not_stratified = nep_not_stratified, verbose = verbose)
+                          nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, 
+                          verbose = verbose)
 
   o2<- calc_do(input.values = input.values,fsed_stratified = modelopt$xmin[1],
                fsed_not_stratified,
                nep_stratified = modelopt$xmin[2],
-               nep_not_stratified)
+               nep_not_stratified,
+               min_stratified = modelopt$xmin[3],
+               min_not_stratified, wind)
   
   input.values$o2_epil <- o2[,"o2_epil"]
   input.values$o2_hypo <- o2[,"o2_hypo"]
@@ -118,6 +126,8 @@ for (ii in lks[-9]){
 
   
   test_data<-compare_predict_versus_observed(obs,input.values) 
+  test_data$year <- year(test_data$day)
+  test_data$doy <- yday(test_data$day)
   
   fit = calc_rmse(test_data)
   
@@ -132,9 +142,11 @@ for (ii in lks[-9]){
     geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
     geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
     geom_point(aes(doy, (o2_hypo/vol_hypo/1000), col = 'Hypo')) +
-    ylim(0,25)+
+    ylim(0,20)+
     facet_wrap(~year) +
-    theme_bw()
+    theme_bw() +
+    geom_point(data = test_data, aes(doy, observed_epil_do, col = 'Obs_Epi'), size =2) +
+    geom_point(data = test_data, aes(doy, observed_hypo_do, col = 'Obs_Hypo'), size =2)
   ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300, width=216,height=150,units='mm')
   
   g2 <- ggplot(input.values, aes(doy, td.depth)) +

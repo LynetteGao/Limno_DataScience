@@ -10,7 +10,10 @@ calc_do(
   fsed_stratified,
   fsed_not_stratified,
   nep_stratified,
-  nep_not_stratified
+  nep_not_stratified,
+  min_stratified,
+  min_not_stratified,
+  wind = NULL
 )
 }
 \arguments{

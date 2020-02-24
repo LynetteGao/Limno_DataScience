@@ -9,6 +9,8 @@ optim_do(
   input.values,
   fsed_not_stratified = 2e-04,
   nep_not_stratified = 0,
+  min_not_stratified = 0,
+  wind = NULL,
   verbose
 )
 }
