@@ -47,7 +47,7 @@ library(simpleAnoxia)
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks[-c(1:7)]){
+for (ii in lks[-c(1:4)]){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T)))
@@ -98,6 +98,7 @@ for (ii in lks[-c(1:7)]){
   }
   
   
+  
   eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
   H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))
   A <- eg_nml$morphometry$A
@@ -105,6 +106,8 @@ for (ii in lks[-c(1:7)]){
   # here's the promised input function (see R/helper.R), you can add the volume and
   # temperature conversion there
   input.values <- input(wtemp = data, H = H, A = A)
+  
+  proc.obs <- preprocess_obs(obs,input.values = input.values, H, A)
 
   fsed_stratified = 0.01 *100
   fsed_not_stratified  =  0.0002
@@ -114,24 +117,24 @@ for (ii in lks[-c(1:7)]){
   min_not_stratified = 0
   
   init.val = c(0.5, 0.1, 0.01)
-  target.iter = 20
+  target.iter = 25
   
   # nelder-mead
   modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5, -0.1),
                           upper = c(1.0, 0.5, 0.1), adapt = TRUE, tol = 1e-2,
                           maxfeval = target.iter, input.values = input.values,
-                          fsed_not_stratified = fsed_not_stratified, 
-                          nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, 
-                          verbose = verbose)
-  
+                          fsed_not_stratified = fsed_not_stratified,
+                          nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind,
+                          verbose = verbose, proc.obs)
+
   # simulated annealling
-  modelopt <- GenSA(par = init.val, fn = optim_do, lower = c(0., -0.5, -0.1),
-                    upper = c(1.0, 0.5, 0.1), 
-                    input.values = input.values,
-                    fsed_not_stratified = fsed_not_stratified, 
-                    nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, 
-                    verbose = verbose,
-                    control=list(maxit = target.iter))
+  # modelopt <- GenSA(par = init.val, fn = optim_do, lower = c(0., -0.5, -0.1),
+  #                   upper = c(1.0, 0.5, 0.1), 
+  #                   input.values = input.values,
+  #                   fsed_not_stratified = fsed_not_stratified, 
+  #                   nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, proc.obs,
+  #                   verbose = verbose,
+  #                   control=list(max.call = target.iter, maxit = target.iter, max.time = 75))
 
   o2<- calc_do(input.values = input.values,fsed_stratified = modelopt$xmin[1],
                fsed_not_stratified,
@@ -152,7 +155,8 @@ for (ii in lks[-c(1:7)]){
   test_data$year <- year(test_data$day)
   test_data$doy <- yday(test_data$day)
   
-  fit = calc_rmse(test_data)
+  # fit = calc_rmse(test_data)
+  fit = calc_fit(input.values , proc.obs )
   
   pgm <- input.values %>%
     dplyr::select(datetime, o2_epil, o2_hypo, o2_total, vol_epil, vol_hypo, 'vol_total' = total_vol)
@@ -161,6 +165,14 @@ for (ii in lks[-c(1:7)]){
   write_delim(pgm, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_',round(fit,1),'_oxymodel.txt'), delim = '\t')
   write_delim(obs, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_obs.txt'), delim = '\t')
 
+  observed <- data.frame('time' = input.values$datetime[proc.obs[1,]],
+                            'year' = input.values$year[proc.obs[1,]],
+                            'doy' = input.values$doy[proc.obs[1,]],
+                            'epi' =proc.obs[3,],
+                            'hypo' = proc.obs[4,],
+                         'epi_sim' = input.values$o2_epil[proc.obs[1,]]/input.values$vol_epil[proc.obs[1,]]/1000,
+                         'hypo_sim' = input.values$o2_hypo[proc.obs[1,]]/input.values$vol_hypo[proc.obs[1,]]/1000)
+  
   g1 <- ggplot(input.values) +
     geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
     geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
@@ -168,8 +180,8 @@ for (ii in lks[-c(1:7)]){
     ylim(0,20)+
     facet_wrap(~year) +
     theme_bw() +
-    geom_point(data = test_data, aes(doy, observed_epil_do, col = 'Obs_Epi'), size =2, alpha = 0.5) +
-    geom_point(data = test_data, aes(doy, observed_hypo_do, col = 'Obs_Hypo'), size =2, alpha = 0.5)
+    geom_point(data = observed, aes(doy, epi, col = 'Obs_Epi'), size =2, alpha = 0.5) +
+    geom_point(data = observed, aes(doy, hypo, col = 'Obs_Hypo'), size =2, alpha = 0.5)
   ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300, width=216,height=150,units='mm')
   
   g2 <- ggplot(input.values, aes(doy, td.depth)) +
@@ -179,11 +191,12 @@ for (ii in lks[-c(1:7)]){
   ggsave(file = paste0(ii,'/predicted_td.png'), g2, dpi=300, width=216,height=150,units='mm')
   
 
-  g3 <- ggplot(test_data, aes(observed_hypo_do, predict_hypo_do, col = 'hypolimnion')) +
-    geom_point() +
-    geom_point(aes(observed_epil_do, predict_epil_do, col = 'epilimnion')) +
-    ylim(0,25)+
-    xlim(0,25)+
+  g3 <- ggplot(observed, aes(time, epi - epi_sim, col = 'epilimnion')) +
+    geom_point(size = 2) +
+    geom_line() +
+    geom_point(aes(time, hypo - hypo_sim, col = 'hypolimnion'), size =2) +
+    geom_line(aes(time, hypo - hypo_sim, col = 'hypolimnion'))+
+    ylab('Residuals (obs-mod)')+
     theme_bw()
   ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=216,height=216,units='mm')
   

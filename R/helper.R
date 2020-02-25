@@ -610,13 +610,26 @@ calc_rmse <- function(test_data){
   return (sqrt(mean((predicted-actual)**2,na.rm = TRUE))) # RMSE
 }
 
+
+#' Calculates RMSE for total lake
+#' @param test_data matrix; Matched observed to simulated data
+#' @return double value of RMSE
+#' @export
+#' 
+calc_fit <- function(input.values, proc.obs){
+  obs <- cbind(proc.obs[3,], proc.obs[4,])
+  mod <- cbind(input.values$o2_epil[proc.obs[1,]]/input.values$vol_epil[proc.obs[1,]]/1000,
+                  input.values$o2_hypo[proc.obs[1,]]/input.values$vol_hypo[proc.obs[1,]]/1000)
+  return (sqrt(mean((obs-mod)**2,na.rm = TRUE))) # RMSE
+}
+
 #' Calculates RMSE for total lake
 #' @param test_data matrix; Matched observed to simulated data
 #' @return double value of RMSE
 #' @export
 #' 
 optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, min_not_stratified = 0.0,
-                     wind = NULL, 
+                     wind = NULL, proc.obs ,
                      verbose){
 
   o2<- calc_do(input.values = input.values,fsed_stratified = p[1],
@@ -634,9 +647,11 @@ optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stra
   input.values$doy <- yday(input.values$datetime)
   
   
-  test_data<-compare_predict_versus_observed(obs,input.values) 
+  # test_data<-compare_predict_versus_observed(obs,input.values) 
+  # 
+  # fit = calc_rmse(test_data)
   
-  fit = calc_rmse(test_data)
+  fit = calc_fit(input.values = input.values, proc.obs)
   
   print(paste(round(p[1],2),round(p[2],2),round(p[3],2),'with RMSE: ',round(fit,3)))
   
@@ -662,6 +677,78 @@ valid<-function(flux,pool){
   }
 }
 
+#' preprocesses observed data and area-weighs them
+#' @param obs observed data
+#' @param pool input matrix of for instance thermocline depth
+#' @param H depths
+#' @param A areas
+#' @return matched and weighted-averaged data
+#' @export
+#' 
+preprocess_obs <- function(obs, input.values, H, A){
+  deps <- seq(round(max(H),2), round(min(H),0), by = -0.5)
+  
+  if (max(H) > max(deps)){
+    deps <- c(max(H), deps)
+  }
+  if (min(H) < min(deps)){
+    deps <- c(deps, min(H))
+  }
+  
+  areas <- approx(H, A, deps)$y
+  
+  apprObs <- matrix(NA, nrow= length(deps), ncol =length(unique(zoo::as.Date(obs$ActivityStartDate))))
+  ts.apprObs <- matrix(NA, nrow= 3, ncol =length(unique(zoo::as.Date(obs$ActivityStartDate))))
+  idx <- c()
+  for (jj in unique(zoo::as.Date(obs$ActivityStartDate))){
 
+    idy =  (match(zoo::as.Date(obs$ActivityStartDate),zoo::as.Date(jj)))
+    idy <- which(!is.na(idy))
+    dat <- obs[idy,]
+  
+    
+    if (sd(dat$ActivityDepthHeightMeasure.MeasureValue) == 0 | length(dat$ActivityDepthHeightMeasure.MeasureValue) <= 1){
+      next} else {
+   
+    apprObs[,match(jj, unique(zoo::as.Date(obs$ActivityStartDate)))] <- approx(dat$ActivityDepthHeightMeasure.MeasureValue, dat$ResultMeasureValue,
+                           deps)$y
+    
+    if (zoo::as.Date(jj) < min(zoo::as.Date(input.values$datetime)) | zoo::as.Date(jj) > max(zoo::as.Date(input.values$datetime))){
+      next 
+    } else {
+      idx <- append(idx,  match(zoo::as.Date(jj), zoo::as.Date(input.values$datetime)))
+    idz <-  which(zoo::as.Date(jj) == zoo::as.Date(input.values$datetime))
+    if (is.na(input.values$td.depth[abs(idz)])){
+      dz.areas <- (1*areas)/sum(areas, na.rm= TRUE)#(areas - min(areas)) / (max(areas) - min(areas))
+      ts.apprObs[1, match(zoo::as.Date(jj), unique(zoo::as.Date(obs$ActivityStartDate)))] <- weighted.mean(apprObs[,match(zoo::as.Date(jj), unique(as.Date(obs$ActivityStartDate)))],
+                                                                                 dz.areas, na.rm = TRUE)
+    } else{
+      z.td <- which(abs(input.values$td.depth[abs(idz)] - deps) == (min(abs(input.values$td.depth[abs(idz)] - deps))[1]))
+      dz.hypo <- (1*areas[1:z.td])/sum(areas[1:z.td])
+      dz.epi <- (1*areas[(z.td+1):length(areas)])/sum(areas[(z.td+1):length(areas)])
+      
+      ts.apprObs[2, match(jj, unique(zoo::as.Date(obs$ActivityStartDate)))] <- weighted.mean(apprObs[(z.td+1):length(areas),match(zoo::as.Date(jj), unique(as.Date(obs$ActivityStartDate)))],
+                                                                                        dz.epi, na.rm = TRUE)
+      
+      ts.apprObs[3, match(jj, unique(zoo::as.Date(obs$ActivityStartDate)))] <- weighted.mean(apprObs[1:z.td,match(jj, unique(zoo::as.Date(obs$ActivityStartDate)))],
+                                                                                        dz.hypo, na.rm = TRUE)
+    }
+    }
+  }
+  }
+  check.na <- c()
+  for (p in 1:ncol(ts.apprObs)){
+    if (all(is.na(ts.apprObs[,p]))){
+      check.na <- append(check.na, p)
+    }
+  }
+  # idx <- match(unique(as.Date(obs$ActivityStartDate)), as.Date(input.values$datetime))
+  if (is.null(check.na)){
+    return(rbind(idx, ts.apprObs))
+  } else {
+    return(rbind(idx, ts.apprObs[,-(check.na)]))
+  }
+ 
+}
 
 
