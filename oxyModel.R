@@ -15,6 +15,7 @@ library(readr)
 library(LakeMetabolizer)
 library(adagio)
 library(zoo)
+library(GenSA)
 
 #devtools::install_github('LynetteGao/Limno_DataScience')
 library(simpleAnoxia)
@@ -46,7 +47,7 @@ library(simpleAnoxia)
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks[-8]){
+for (ii in lks[-c(1:7)]){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T)))
@@ -64,10 +65,21 @@ for (ii in lks[-8]){
       # more_obs <- filter_obs %>%
         # dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
       
-      wq <- raw_obs %>%
-        dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
-        dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+      if ('ActivityDepthHeighMeasure.MeasureValue' %in% colnames(raw_obs)){
+        wq <- raw_obs %>%
+          dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
+          # dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+          dplyr::select(c('ActivityStartDate', 'ActivityDepthHeighMeasure.MeasureValue', 'ResultMeasureValue'))
+       wq <- rename(wq, 'ActivityDepthHeightMeasure.MeasureValue' = 'ActivityDepthHeighMeasure.MeasureValue')
+      } else {
+        wq <- raw_obs %>%
+          dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
+          # dplyr::select(c('ActivityStartDate', 'ActivityStartTime.Time', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+          dplyr::select(c('ActivityStartDate', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
         
+      }
+      
+      
       if (length(wq_data) == 1 | is.null(obs)){
         obs <- wq
       } else {
@@ -77,7 +89,7 @@ for (ii in lks[-8]){
   }
   obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
   }
-  
+
   if (is.factor(obs$ActivityDepthHeightMeasure.MeasureValue)){
     obs$ActivityDepthHeightMeasure.MeasureValue <-  as.numeric(as.character(obs$ActivityDepthHeightMeasure.MeasureValue))
   }
@@ -102,13 +114,24 @@ for (ii in lks[-8]){
   min_not_stratified = 0
   
   init.val = c(0.5, 0.1, 0.01)
-  target.iter = 25
+  target.iter = 20
+  
+  # nelder-mead
   modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5, -0.1),
                           upper = c(1.0, 0.5, 0.1), adapt = TRUE, tol = 1e-2,
                           maxfeval = target.iter, input.values = input.values,
                           fsed_not_stratified = fsed_not_stratified, 
                           nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, 
                           verbose = verbose)
+  
+  # simulated annealling
+  modelopt <- GenSA(par = init.val, fn = optim_do, lower = c(0., -0.5, -0.1),
+                    upper = c(1.0, 0.5, 0.1), 
+                    input.values = input.values,
+                    fsed_not_stratified = fsed_not_stratified, 
+                    nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, 
+                    verbose = verbose,
+                    control=list(maxit = target.iter))
 
   o2<- calc_do(input.values = input.values,fsed_stratified = modelopt$xmin[1],
                fsed_not_stratified,
