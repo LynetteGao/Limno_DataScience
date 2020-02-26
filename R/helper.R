@@ -695,7 +695,7 @@ preprocess_obs <- function(obs, input.values, H, A){
     deps <- c(deps, min(H))
   }
   
-  areas <- approx(H, A, deps)$y
+  areas <- approx(round(H,2), round(A,2), deps)$y
   
   apprObs <- matrix(NA, nrow= length(deps), ncol =length(unique(zoo::as.Date(obs$ActivityStartDate))))
   ts.apprObs <- matrix(NA, nrow= 3, ncol =length(unique(zoo::as.Date(obs$ActivityStartDate))))
@@ -709,9 +709,18 @@ preprocess_obs <- function(obs, input.values, H, A){
     
     if (sd(dat$ActivityDepthHeightMeasure.MeasureValue) == 0 | length(dat$ActivityDepthHeightMeasure.MeasureValue) <= 1){
       next} else {
-   
-    apprObs[,match(jj, unique(zoo::as.Date(obs$ActivityStartDate)))] <- approx(dat$ActivityDepthHeightMeasure.MeasureValue, dat$ResultMeasureValue,
-                           deps)$y
+    
+        
+        if (any(is.na(approx(round(dat$ActivityDepthHeightMeasure.MeasureValue,2), round(dat$ResultMeasureValue,2),
+                             deps)$y))){
+          intvec <- (approx(round(dat$ActivityDepthHeightMeasure.MeasureValue,2), round(dat$ResultMeasureValue,2),
+                                     deps)$y)
+          intvec[ which(is.na(intvec))] <- intvec[( which(is.na(intvec)))+1]
+          } else {
+           intvec <- approx(round(dat$ActivityDepthHeightMeasure.MeasureValue,2), round(dat$ResultMeasureValue,2),
+                                                        deps)$y
+                                     }
+    apprObs[,match(jj, unique(zoo::as.Date(obs$ActivityStartDate)))] <-intvec
     
     if (zoo::as.Date(jj) < min(zoo::as.Date(input.values$datetime)) | zoo::as.Date(jj) > max(zoo::as.Date(input.values$datetime))){
       next 
