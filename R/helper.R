@@ -686,7 +686,7 @@ valid<-function(flux,pool){
 #' @export
 #' 
 preprocess_obs <- function(obs, input.values, H, A){
-  deps <- seq(round(max(H),2), round(min(H),0), by = -0.5)
+  deps <- seq(round(max(H),4), round(min(H),4), by = -0.5)
   
   if (max(H) > max(deps)){
     deps <- c(max(H), deps)
@@ -695,7 +695,7 @@ preprocess_obs <- function(obs, input.values, H, A){
     deps <- c(deps, min(H))
   }
   
-  areas <- approx(round(H,2), round(A,2), deps)$y
+  areas <- approx(round(H,4), round(A,4), round(deps,4))$y
   
   apprObs <- matrix(NA, nrow= length(deps), ncol =length(unique(zoo::as.Date(obs$ActivityStartDate))))
   ts.apprObs <- matrix(NA, nrow= 3, ncol =length(unique(zoo::as.Date(obs$ActivityStartDate))))
@@ -709,7 +709,12 @@ preprocess_obs <- function(obs, input.values, H, A){
     
     if (sd(dat$ActivityDepthHeightMeasure.MeasureValue) == 0 | length(dat$ActivityDepthHeightMeasure.MeasureValue) <= 1){
       next} else {
-    
+           
+        if (max(deps) > max(round(dat$ActivityDepthHeightMeasure.MeasureValue,2))) {
+          dat <- rbind(dat, data.frame('ActivityStartDate' = zoo::as.Date(jj),
+                                'ActivityDepthHeightMeasure.MeasureValue' = max(deps),
+                                'ResultMeasureValue' = dat$ResultMeasureValue[nrow(dat)]))
+        }
         
         if (any(is.na(approx(round(dat$ActivityDepthHeightMeasure.MeasureValue,2), round(dat$ResultMeasureValue,2),
                              deps)$y))){

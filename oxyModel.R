@@ -47,7 +47,7 @@ library(simpleAnoxia)
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks[-c(1:4)]){
+for (ii in lks){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T)))
@@ -200,6 +200,26 @@ for (ii in lks[-c(1:4)]){
     theme_bw()
   ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=216,height=216,units='mm')
   
-    
+  eval.info <- data.frame('id' = sub("\\).*", "", sub(".*\\(", "", ii)) ,
+                          'time' = Sys.time(),
+             'A' = max(A),
+             'z' = max(H),
+             'obs' = ncol(proc.obs),
+             'RMSE' = fit)
+    write.table(eval.info, file ='eval.csv', append=TRUE, quote = FALSE, col.names = FALSE,
+                row.names = FALSE)
   print('Nothing got broken, good job!')
 }
+
+library(viridis)
+eval.df <- read.table('eval.csv', header = TRUE)
+
+g<- ggplot(eval.df, aes(Asurf, RMSE, col = MaxZ, label = ID)) + 
+  geom_point(aes(size = nobs)) +   
+  scale_color_viridis(option="magma") +
+  xlab('Surface Area') +
+  ylab('RMSE in mg DO/L') +
+  geom_text(check_overlap = TRUE,hjust = 0, nudge_x = 0.05) + 
+  theme_bw();g
+ggsave(file = paste0('lake_results.png'), g, dpi=300, width=216,height=216,units='mm')
+
