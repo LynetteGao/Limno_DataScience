@@ -426,6 +426,9 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
   o2_data$o2_total[1] <- init_o2sat*input.values$total_vol[1] # returns mg O2 (m3 = 1000 L)
   
   theta<-1.08
+  
+  
+  profvis({
   for(day in 2:length(input.values$td.depth)){
     
     if (is.null(wind)){
@@ -517,6 +520,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       print('RED ALERT!')
     }
   }
+})
   return (o2_data)
 }
 
