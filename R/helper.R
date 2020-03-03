@@ -42,12 +42,14 @@ calc_td_depth <- function(wtemp){
   
   cbuoy.depth <- rep(NA, length(grd.info$datetime))
   
+  condition<- apply(temp, 1, FUN=min) > 4
+  
   for (ii in 1:length(cbuoy.depth)){
     idx = !is.na(temp[ii,])
     dens_data = dens[ii,idx]
     dens.diff = rev(dens_data)[1] - dens_data[1]
     
-    if (min(temp[ii,],na.rm=TRUE) > 4 && abs(dens.diff) > 0.1){
+    if (condition[ii] && abs(dens.diff) > 0.1){
     cbuoy.depth[ii] <- center.buoyancy(temp[ii,], as.numeric(grd.info$depth))
     }
   }
@@ -322,11 +324,13 @@ calc_epil_hypo_temp<-function(wtemp,td.depth,H){
   hypo_temp <- rep(NA, length(td.depth))
   total_temp<- rep(NA, length(td.depth))
   
+  td_not_exist <- is.na(td.depth)
+  
   for (ii in 1:length(td.depth)){
     idx = !is.na(temp[ii,])
     temp_data = as.numeric(temp[ii,idx])
     total_temp[ii]<-max(sum(temp_data)/length(temp_data),4)
-    if(!is.na(td.depth[ii])){
+    if(!td_not_exist[ii])){
       td_idx <- max(which(td.depth[ii]>=depth_data))
       epil_temp[ii] <- mean(temp_data[1:td_idx])
       if (td_idx >= length(temp_data)) {td_idx = length(temp_data)-1}
@@ -368,8 +372,10 @@ calc_total_vol<-function(H,A){
 calc_epil_hypo_vol <- function(H,A,td.depth,total_vol){
   vol_data <- matrix(NA, nrow = length(td.depth), ncol = 2)
   colnames(vol_data) <- c("vol_epil","vol_hypo")
+  
+  td_not_exist<-is.na(td.depth)
   for (ii in 1:length(td.depth)){
-    if(!is.na(td.depth[ii])){
+    if(!td_not_exist[ii]){
       h_idx <- min(which(td.depth[ii]>=H))
       approx_td.area<-approx(H, A, c(0, td.depth[ii]))$y[2]
       if (is.na(approx_td.area)){approx_td.area = min(A)}
@@ -428,7 +434,8 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
   theta<-1.08
   
   
-  profvis({
+  td_not_exist <- is.na(input.values$td.depth)
+  
   for(day in 2:length(input.values$td.depth)){
     
     if (is.null(wind)){
@@ -438,7 +445,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
     }
     
     ## not stratified period, only consider the o2(total)
-    if(is.na(input.values$td.depth[day])){
+    if(td_not_exist[day]){
       theta_total <- theta^(input.values$t.total[day]-20)
       
       NEP <- valid(nep_not_stratified * input.values$total_vol[day] * theta_total,
@@ -520,7 +527,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       print('RED ALERT!')
     }
   }
-})
+
   return (o2_data)
 }
 
@@ -540,6 +547,8 @@ compare_predict_versus_observed<-function(obs,input.values){
   test_data <- as.data.frame(test_data)
   test_data$day<-as.POSIXct(test_data$day)
   
+  td_not_exist<- is.na(input.values$td.depth)
+  
   for(jj in 1:length(ndate)){
     test_data$day[jj]<-ndate[jj]
     ##identify the index of the day from input values tested on the output
@@ -548,7 +557,7 @@ compare_predict_versus_observed<-function(obs,input.values){
     if(length(kk)!=1){
       next
     }
-    if(is.na(input.values$td.depth[kk])){
+    if(td_not_exist[kk]){
       test_data$predict_total_do[jj] <- input.values$o2_total[kk]
       
       obs_data<-  obs %>% filter(ActivityStartDate == ndate[jj]) %>% 
