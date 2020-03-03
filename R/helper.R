@@ -42,7 +42,7 @@ calc_td_depth <- function(wtemp){
   
   cbuoy.depth <- rep(NA, length(grd.info$datetime))
   
-  condition<- apply(temp, 1, FUN=min) > 4
+  condition<- apply(temp, 1, FUN=min,na.rm=TRUE) > 4
   
   for (ii in 1:length(cbuoy.depth)){
     idx = !is.na(temp[ii,])
@@ -330,7 +330,7 @@ calc_epil_hypo_temp<-function(wtemp,td.depth,H){
     idx = !is.na(temp[ii,])
     temp_data = as.numeric(temp[ii,idx])
     total_temp[ii]<-max(sum(temp_data)/length(temp_data),4)
-    if(!td_not_exist[ii])){
+    if(!td_not_exist[ii]){
       td_idx <- max(which(td.depth[ii]>=depth_data))
       epil_temp[ii] <- mean(temp_data[1:td_idx])
       if (td_idx >= length(temp_data)) {td_idx = length(temp_data)-1}
@@ -436,6 +436,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
   
   td_not_exist <- is.na(input.values$td.depth)
   
+
   for(day in 2:length(input.values$td.depth)){
     
     if (is.null(wind)){
@@ -642,8 +643,7 @@ calc_fit <- function(input.values, proc.obs){
 #' @export
 #' 
 optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, min_not_stratified = 0.0,
-                     wind = NULL, proc.obs ,
-                     verbose){
+                     wind = NULL, proc.obs,verbose){
 
   o2<- calc_do(input.values = input.values,fsed_stratified = p[1],
                fsed_not_stratified,
