@@ -491,16 +491,6 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
                     o2_data[day-1,"o2_hypo"])
       
       o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed + MINER_hypo#+ NEP_hypo +Fatm_hypo
-# <<<<<<< HEAD
-#       if(o2_data[day,"o2_hypo"]  < 0){
-#         o2_data[day,"o2_hypo"]  = 0
-#       }
-      # print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
-      ## total = hypo+epil
-
-      #print((o2_data[day,"o2_hypo"]/input.values$vol_hypo[day])/1000)
-     
-       ## total = hypo+epil
 
       o2_data[day,"o2_total"] <- o2_data[day,"o2_hypo"] + o2_data[day,"o2_epil"]
       # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
@@ -702,7 +692,8 @@ preprocess_obs <- function(obs, input.values, H, A){
     dat <- obs[idy,]
   
     
-    if (sd(dat$ActivityDepthHeightMeasure.MeasureValue) == 0 | length(dat$ActivityDepthHeightMeasure.MeasureValue) <= 1){
+    if (sd(dat$ActivityDepthHeightMeasure.MeasureValue) == 0 | length(dat$ActivityDepthHeightMeasure.MeasureValue) <= 1 |
+        length(na.omit( round(dat$ResultMeasureValue,2))) <= 1){
       next} else {
            
         if (max(deps) > max(round(dat$ActivityDepthHeightMeasure.MeasureValue,2))) {

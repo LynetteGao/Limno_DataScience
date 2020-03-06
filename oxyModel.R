@@ -97,7 +97,10 @@ for (ii in lks){
     obs$ResultMeasureValue <-  as.numeric(as.character(obs$ResultMeasureValue))
   }
   
-  
+  # outlier detection
+  outlier_values <- boxplot.stats(obs$ResultMeasureValue)$out 
+  uvx <- match(outlier_values, obs$ResultMeasureValue)
+  obs$ResultMeasureValue[uvx] <- NA
   
   eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
   H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))
@@ -117,24 +120,34 @@ for (ii in lks){
   min_not_stratified = 0
   
   init.val = c(0.5, 0.1, 0.01)
-  target.iter = 25
+  target.iter = 10
   
   # nelder-mead
-  modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5, -0.1),
-                          upper = c(1.0, 0.5, 0.1), adapt = TRUE, tol = 1e-2,
-                          maxfeval = target.iter, input.values = input.values,
-                          fsed_not_stratified = fsed_not_stratified,
-                          nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind,
-                          verbose = verbose, proc.obs)
+  # modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5, -0.1),
+  #                         upper = c(1.0, 0.5, 0.1), adapt = TRUE, tol = 1e-2,
+  #                         maxfeval = target.iter, input.values = input.values,
+  #                         fsed_not_stratified = fsed_not_stratified,
+  #                         nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind,
+  #                         verbose = verbose, proc.obs)
 
   # simulated annealling
   # modelopt <- GenSA(par = init.val, fn = optim_do, lower = c(0., -0.5, -0.1),
-  #                   upper = c(1.0, 0.5, 0.1), 
+  #                   upper = c(1.0, 0.5, 0.1),
   #                   input.values = input.values,
-  #                   fsed_not_stratified = fsed_not_stratified, 
+  #                   fsed_not_stratified = fsed_not_stratified,
   #                   nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, proc.obs,
   #                   verbose = verbose,
-  #                   control=list(max.call = target.iter, maxit = target.iter, max.time = 75))
+  #                   control=list(max.time = 120))
+  
+  modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = c(0., -0.5, -0.1),
+                    upper = c(1.0, 0.5, 0.1), sigma = 0.5,
+                    stopfitness = -Inf, 
+                    stopeval = target.iter,
+                    input.values = input.values,
+                    fsed_not_stratified = fsed_not_stratified,
+                    nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, 
+                    wind, proc.obs,
+                    verbose = verbose)
 
   o2<- calc_do(input.values = input.values,fsed_stratified = modelopt$xmin[1],
                fsed_not_stratified,
