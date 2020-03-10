@@ -120,7 +120,7 @@ for (ii in lks){
   min_not_stratified = 0
   
   init.val = c(0.5, 0.1, 0.01)
-  target.iter = 10
+  target.iter = 25
   
   # nelder-mead
   # modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5, -0.1),
@@ -195,7 +195,7 @@ for (ii in lks){
     theme_bw() +
     geom_point(data = observed, aes(doy, epi, col = 'Obs_Epi'), size =2, alpha = 0.5) +
     geom_point(data = observed, aes(doy, hypo, col = 'Obs_Hypo'), size =2, alpha = 0.5)
-  ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300, width=216,height=150,units='mm')
+  ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300,width=316,height=190,units='mm')
   
   g2 <- ggplot(input.values, aes(doy, td.depth)) +
     geom_line() +
@@ -211,7 +211,21 @@ for (ii in lks){
     geom_line(aes(time, hypo - hypo_sim, col = 'hypolimnion'))+
     ylab('Residuals (obs-mod)')+
     theme_bw()
-  ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=216,height=216,units='mm')
+  ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=316,height=190,units='mm')
+  
+  anno = 2000
+  
+  g4 <- ggplot(subset(input.values, year == anno)) +
+    geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
+    geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
+    geom_point(aes(doy, (o2_hypo/vol_hypo/1000), col = 'Hypo')) +
+    ylim(0,20)+
+    #facet_wrap(~year) +
+    theme_bw() +
+    geom_point(data = subset(observed, year == anno), aes(doy, epi, col = 'Obs_Epi'), size =2, alpha = 0.5) +
+    geom_point(data = subset(observed, year == anno), aes(doy, hypo, col = 'Obs_Hypo'), size =2, alpha = 0.5);g4
+  ggsave(file = paste0(ii,'/oxymodel_2000.png'), g4, dpi=300,width=316,height=190,units='mm')
+  
   
   eval.info <- data.frame('id' = sub("\\).*", "", sub(".*\\(", "", ii)) ,
                           'time' = Sys.time(),
@@ -234,5 +248,5 @@ g<- ggplot(eval.df, aes(Asurf, RMSE, col = MaxZ, label = ID)) +
   ylab('RMSE in mg DO/L') +
   geom_text(check_overlap = TRUE,hjust = 0, nudge_x = 0.05) + 
   theme_bw();g
-ggsave(file = paste0('lake_results.png'), g, dpi=300, width=216,height=216,units='mm')
+ggsave(file = paste0('lake_results.png'), g, dpi=300, width=316,height=190,units='mm')
 
