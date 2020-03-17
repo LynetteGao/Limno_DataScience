@@ -3,8 +3,6 @@ rm(list = ls())
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
 ## packages
-# get glmtools by first installing devtools, e.g. install.packages('devtools), then
-# devtools::install_github('USGS-R/glmtools', ref='ggplot_overhaul')
 library(devtools)
 library(glmtools) 
 library(dplyr)
@@ -17,37 +15,12 @@ library(adagio)
 library(zoo)
 library(GenSA)
 
-#devtools::install_github('LynetteGao/Limno_DataScience')
 library(simpleAnoxia)
-
-## source all functions
-# source('R/helper.R')
-
-# # load shapefiles
-# library(sf)
-# lakes = st_read(file.path('inst/extdata/study_lakes.shp'))
-# ggplot(lakes) + geom_sf()
-# poly.distance <- function(polygon){
-#   polygon <- st_sfc(polygon, crs = 4269)
-#   return(max(st_distance(st_cast(polygon, "POINT"))))
-# }
-# str(lakes)
-# poly.distance(st_geometry(lakes[4,]))
-# df.poly <- matrix(NA,ncol=2,nrow=nrow(lakes))
-# for (jj in 2001:2500){
-#   df.poly[jj,1] <- poly.distance(st_geometry(lakes[jj,]))
-#   df.poly[jj,2] <- 10^(0.336 * log10(df.poly[jj,1]) - 0.245) # https://www.nrcresearchpress.com/doi/pdfplus/10.1139/f90-108
-#   print(paste0(jj,' of ', nrow(df.poly),' and we use ',object.size(df.poly)))
-# }
-
-
-# sapply(st_geometry(lakes), poly.distance)
-# purrr::map(st_geometry(lakes), poly.distance)
 
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks){
+for (ii in lks[9]){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T)))
@@ -112,14 +85,15 @@ for (ii in lks){
   
   proc.obs <- preprocess_obs(obs,input.values = input.values, H, A)
 
-  fsed_stratified = 0.01 *100
+  fsed_stratified_epi = 0.01 *100
+  fsed_stratified_hypo = 0.01 *100
   fsed_not_stratified  =  0.0002
   nep_stratified = 0.1
   nep_not_stratified = 0
   min_stratified = 0.1
   min_not_stratified = 0
   
-  init.val = c(0.5, 0.1, 0.01)
+  init.val = c(0.5, 0.5, 0.1, 0.01)
   target.iter = 25
   
   # nelder-mead
@@ -139,8 +113,8 @@ for (ii in lks){
   #                   verbose = verbose,
   #                   control=list(max.time = 120))
   
-  modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = c(0., -0.5, -0.1),
-                    upper = c(1.0, 0.5, 0.1), sigma = 0.5,
+  modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = c(0.0, 0.0, -0.5, -0.1),
+                    upper = c(1.0, 1.0, 0.5, 0.1), sigma = 0.5,
                     stopfitness = -Inf, 
                     stopeval = target.iter,
                     input.values = input.values,
@@ -149,11 +123,12 @@ for (ii in lks){
                     wind, proc.obs,
                     verbose = verbose)
 
-  o2<- calc_do(input.values = input.values,fsed_stratified = modelopt$xmin[1],
+  o2<- calc_do(input.values = input.values,fsed_stratified_epi = modelopt$xmin[1],
+               fsed_stratified_hypo = modelopt$xmin[2],
                fsed_not_stratified,
-               nep_stratified = modelopt$xmin[2],
+               nep_stratified = modelopt$xmin[3],
                nep_not_stratified,
-               min_stratified = modelopt$xmin[3],
+               min_stratified = modelopt$xmin[4],
                min_not_stratified, wind)
   
   input.values$o2_epil <- o2[,"o2_epil"]
