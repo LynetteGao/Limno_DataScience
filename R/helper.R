@@ -758,4 +758,70 @@ preprocess_obs <- function(obs, input.values, H, A){
  
 }
 
-
+#' preprocesses observed data and area-weighs them w/o interpolation
+#' @param obs observed data
+#' @param input.values input matrix of for instance thermocline depth
+#' @param H depths
+#' @param A areas
+#' @return matched and weighted-averaged data
+#' @export
+#' 
+weigh_obs <- function(obs, input.values, H, A){
+  
+  data_long <- obs %>% arrange(ActivityStartDate)
+  data_long$Area <- approx(H, A, data_long$ActivityDepthHeightMeasure.MeasureValue)$y
+  
+  idx <- match(zoo::as.Date(data_long$ActivityStartDate), zoo::as.Date(input.values$datetime))
+  data_long$Layer <- data_long$ActivityDepthHeightMeasure.MeasureValue <= input.values$td.depth[idx]
+  
+  data_long$Layer[which(data_long$Layer == TRUE)] = 'EPILIMNION'
+  data_long$Layer[which(data_long$Layer == FALSE)] = 'HYPOLIMNION'
+  data_long$Layer[which(is.na(data_long$Layer))] = 'TOTAL'
+  
+  data_long$WeightValue <- rep(NA, nrow(data_long))
+  weight_obs <- matrix(NA, nrow = 4, ncol = length(unique(zoo::as.Date(data_long$ActivityStartDate))))
+  
+  for (ii in unique(zoo::as.Date(data_long$ActivityStartDate))){
+    # print(zoo::as.Date(ii))
+    idx <- which(zoo::as.Date(ii) == zoo::as.Date(data_long$ActivityStartDate))
+    idz <- match(zoo::as.Date(ii), zoo::as.Date(input.values$datetime))
+    thdepth <- input.values$td.depth[idz]
+    data <- data_long[idx, ]
+    
+    weight_obs[1, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- idz
+    
+    if (all(data$Layer == 'TOTAL')){
+      total_areas <- approx(H, A, seq(from = max(H), to = 0, by = -0.5))$y
+      perc <- (1 * data$Area) / max(total_areas)
+      data_long$WeightValue[idx] <- data$ResultMeasureValue * perc
+      data$WeightValue<- data$ResultMeasureValue * perc
+      
+      # print(paste(
+      #   mean(data$WeightValue[which(data$Layer == 'TOTAL')])))
+      
+      weight_obs[2, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'TOTAL')])
+    } else {
+      idy = which(data$Layer == 'EPILIMNION')
+      epi_areas <- approx(H, A, seq(from = round(thdepth,1), to = 0, by = -0.5))$y
+      epi_perc <- (1 * data$Area[idy]) / max(epi_areas)
+      
+      idt = which(data$Layer == 'HYPOLIMNION')
+      hypo_areas <- approx(H, A, seq(from = max(H), to = round(thdepth,1), by = -0.5))$y
+      hypo_perc <- (1 * data$Area[idt]) / max(hypo_areas)
+      
+      data_long$WeightValue[idx] <- c(data$ResultMeasureValue[idy] * epi_perc,
+                                      data$ResultMeasureValue[idt] * hypo_perc)
+      data$WeightValue <- c(data$ResultMeasureValue[idy] * epi_perc,
+                            data$ResultMeasureValue[idt] * hypo_perc)
+      
+      # print(paste(
+      #   mean(data$WeightValue[which(data$Layer == 'EPILIMNION')]),
+      #   mean(data$WeightValue[which(data$Layer == 'HYPOLIMNION')])
+      # ))
+      weight_obs[3, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'EPILIMNION')])
+      weight_obs[4, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'HYPOLIMNION')])
+      
+    }
+  }
+  return(list(data_long, weight_obs))
+}

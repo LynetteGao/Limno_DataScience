@@ -7,7 +7,8 @@ and the total dissovled oxygen in the lake}
 \usage{
 calc_do(
   input.values,
-  fsed_stratified,
+  fsed_stratified_epi,
+  fsed_stratified_hypo,
   fsed_not_stratified,
   nep_stratified,
   nep_not_stratified,
