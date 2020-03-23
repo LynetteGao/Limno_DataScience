@@ -386,11 +386,14 @@ calc_epil_hypo_vol <- function(H,A,td.depth,total_vol){
 input <- function(wtemp, H, A){
   grd.info <- extract_time_space(wtemp)
   td.depth <- calc_td_depth(wtemp)
+  td_area <- approx(H, A, td.depth)$y
+  surf_area <- rep(max(A), length(grd.info$datetime))
   temp_out<-calc_epil_hypo_temp(wtemp,td.depth,H)
   total_vol<- calc_total_vol(H,A)
   vol<-calc_epil_hypo_vol(H,A,td.depth,total_vol)
   return(data.frame(datetime = as.POSIXct(grd.info$datetime),td.depth,t.epil = temp_out$t_epil,t.hypo=temp_out$t_hypo,
-                          t.total = temp_out$t_total,total_vol,vol))
+                          t.total = temp_out$t_total,total_vol,vol,
+                    td_area, surf_area))
 }
 
 
@@ -401,7 +404,7 @@ input <- function(wtemp, H, A){
 #' @return list of datetimes and depths
 #' @export
 #' 
-calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratified,nep_not_stratified,
+calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not_stratified,nep_stratified,nep_not_stratified,
                   min_stratified, min_not_stratified, wind = NULL){
   ##initialize the o2(hypo),o2(epil),o2(total)
   o2_data <- matrix(NA, nrow = length(input.values$td.depth), ncol = 3)
@@ -442,7 +445,7 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       Fatm <- valid(kO2*(o2sat*input.values$total_vol[day] - o2_data[day-1,"o2_total"])/max(H),
                     o2_data[day-1,"o2_total"])# mg/m * m/d = mg/d
   
-      Fsed <- valid(fsed_not_stratified * o2_data[day-1,"o2_total"]/max(H) * theta_total,
+      Fsed <- valid(fsed_not_stratified * o2_data[day-1,"o2_total"]/(input.values$surf_area[day]/input.values$total_vol[day]) * theta_total,
                     o2_data[day-1,"o2_total"])# mg/m * m/d = mg/d
       
       o2_data[day,"o2_total"] <- o2_data[day-1,"o2_total"] - Fsed + NEP + Fatm + MINER# units make sense bc every term is actually multiplied
@@ -475,7 +478,10 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       Fepi <-  valid(volumechange_epi_proportion* o2_data[day-1,"o2_epil"],
                      o2_data[day-1,"o2_epil"])
       
-      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"]+NEP_epil+Fatm_epil + Fepi
+      Fsed_epi <- valid(fsed_stratified_epi *o2_data[day-1,"o2_epil"] * (input.values$surf_area[day]/input.values$vol_epil[day]) * theta_epil,
+                         o2_data[day-1,"o2_epil"])
+      
+      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"]+NEP_epil+Fatm_epil + Fepi -Fsed_epi
       # print((o2_data[day,"o2_epil"]/input.values$vol_epil[day])/1000)
       
       ##hypo = hypo_o2[i-1]+Fhypo[i] - Fsed[i] 
@@ -487,10 +493,10 @@ calc_do<-function(input.values,fsed_stratified,fsed_not_stratified,nep_stratifie
       MINER_hypo <- valid(min_stratified * input.values$vol_hypo[day] * theta_hypo,
                         o2_data[day-1,"o2_hypo"])# has to return mg/d, mg/m3/d * m3
       
-      Fsed <- valid(fsed_stratified *o2_data[day-1,"o2_hypo"]/(max(H) - input.values$td.depth[day] ) * theta_hypo,
+      Fsed_hypo <- valid(fsed_stratified_hypo *o2_data[day-1,"o2_hypo"] * (input.values$td_area[day]/input.values$vol_hypo[day]) * theta_hypo,
                     o2_data[day-1,"o2_hypo"])
       
-      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed + MINER_hypo#+ NEP_hypo +Fatm_hypo
+      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + Fhypo - Fsed_hypo + MINER_hypo#+ NEP_hypo +Fatm_hypo
 
       o2_data[day,"o2_total"] <- o2_data[day,"o2_hypo"] + o2_data[day,"o2_epil"]
       # print((o2_data[day,"o2_total"]/input.values$total_vol[day])/1000)
@@ -617,11 +623,12 @@ calc_fit <- function(input.values, proc.obs){
 optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, min_not_stratified = 0.0,
                      wind = NULL, proc.obs,verbose){
 
-  o2<- calc_do(input.values = input.values,fsed_stratified = p[1],
+  o2<- calc_do(input.values = input.values,fsed_stratified_epi = p[1],
+               fsed_stratified_hypo = p[2],
                fsed_not_stratified,
-               nep_stratified = p[2],
+               nep_stratified = p[3],
                nep_not_stratified,
-               min_stratified = p[3],
+               min_stratified = p[4],
                min_not_stratified, wind)
   
   input.values$o2_epil <- o2[,"o2_epil"]
@@ -638,7 +645,7 @@ optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stra
   
   fit = calc_fit(input.values = input.values, proc.obs)
   
-  print(paste(round(p[1],2),round(p[2],2),round(p[3],2),'with RMSE: ',round(fit,3)))
+  print(paste(round(p[1],2),round(p[2],2),round(p[3],2),round(p[4],2),'with RMSE: ',round(fit,3)))
   
   return(fit)
 }
@@ -751,4 +758,70 @@ preprocess_obs <- function(obs, input.values, H, A){
  
 }
 
-
+#' preprocesses observed data and area-weighs them w/o interpolation
+#' @param obs observed data
+#' @param input.values input matrix of for instance thermocline depth
+#' @param H depths
+#' @param A areas
+#' @return matched and weighted-averaged data
+#' @export
+#' 
+weigh_obs <- function(obs, input.values, H, A){
+  
+  data_long <- obs %>% arrange(ActivityStartDate)
+  data_long$Area <- approx(H, A, data_long$ActivityDepthHeightMeasure.MeasureValue)$y
+  
+  idx <- match(zoo::as.Date(data_long$ActivityStartDate), zoo::as.Date(input.values$datetime))
+  data_long$Layer <- data_long$ActivityDepthHeightMeasure.MeasureValue <= input.values$td.depth[idx]
+  
+  data_long$Layer[which(data_long$Layer == TRUE)] = 'EPILIMNION'
+  data_long$Layer[which(data_long$Layer == FALSE)] = 'HYPOLIMNION'
+  data_long$Layer[which(is.na(data_long$Layer))] = 'TOTAL'
+  
+  data_long$WeightValue <- rep(NA, nrow(data_long))
+  weight_obs <- matrix(NA, nrow = 4, ncol = length(unique(zoo::as.Date(data_long$ActivityStartDate))))
+  
+  for (ii in unique(zoo::as.Date(data_long$ActivityStartDate))){
+    # print(zoo::as.Date(ii))
+    idx <- which(zoo::as.Date(ii) == zoo::as.Date(data_long$ActivityStartDate))
+    idz <- match(zoo::as.Date(ii), zoo::as.Date(input.values$datetime))
+    thdepth <- input.values$td.depth[idz]
+    data <- data_long[idx, ]
+    
+    weight_obs[1, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- idz
+    
+    if (all(data$Layer == 'TOTAL')){
+      total_areas <- approx(H, A, seq(from = max(H), to = 0, by = -0.5))$y
+      perc <- (1 * data$Area) / max(total_areas)
+      data_long$WeightValue[idx] <- data$ResultMeasureValue * perc
+      data$WeightValue<- data$ResultMeasureValue * perc
+      
+      # print(paste(
+      #   mean(data$WeightValue[which(data$Layer == 'TOTAL')])))
+      
+      weight_obs[2, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'TOTAL')])
+    } else {
+      idy = which(data$Layer == 'EPILIMNION')
+      epi_areas <- approx(H, A, seq(from = round(thdepth,1), to = 0, by = -0.5))$y
+      epi_perc <- (1 * data$Area[idy]) / max(epi_areas)
+      
+      idt = which(data$Layer == 'HYPOLIMNION')
+      hypo_areas <- approx(H, A, seq(from = max(H), to = round(thdepth,1), by = -0.5))$y
+      hypo_perc <- (1 * data$Area[idt]) / max(hypo_areas)
+      
+      data_long$WeightValue[idx] <- c(data$ResultMeasureValue[idy] * epi_perc,
+                                      data$ResultMeasureValue[idt] * hypo_perc)
+      data$WeightValue <- c(data$ResultMeasureValue[idy] * epi_perc,
+                            data$ResultMeasureValue[idt] * hypo_perc)
+      
+      # print(paste(
+      #   mean(data$WeightValue[which(data$Layer == 'EPILIMNION')]),
+      #   mean(data$WeightValue[which(data$Layer == 'HYPOLIMNION')])
+      # ))
+      weight_obs[3, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'EPILIMNION')])
+      weight_obs[4, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'HYPOLIMNION')])
+      
+    }
+  }
+  return(list(data_long, weight_obs))
+}

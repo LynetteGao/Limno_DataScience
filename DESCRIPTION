@@ -16,4 +16,4 @@ Description: Runs dynamic two-layer oxygen model for physics-guided machine lear
 License: CCO
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.0

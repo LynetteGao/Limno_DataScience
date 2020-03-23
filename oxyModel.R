@@ -3,8 +3,6 @@ rm(list = ls())
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
 ## packages
-# get glmtools by first installing devtools, e.g. install.packages('devtools), then
-# devtools::install_github('USGS-R/glmtools', ref='ggplot_overhaul')
 library(devtools)
 library(glmtools) 
 library(dplyr)
@@ -17,37 +15,12 @@ library(adagio)
 library(zoo)
 library(GenSA)
 
-#devtools::install_github('LynetteGao/Limno_DataScience')
 library(simpleAnoxia)
-
-## source all functions
-# source('R/helper.R')
-
-# # load shapefiles
-# library(sf)
-# lakes = st_read(file.path('inst/extdata/study_lakes.shp'))
-# ggplot(lakes) + geom_sf()
-# poly.distance <- function(polygon){
-#   polygon <- st_sfc(polygon, crs = 4269)
-#   return(max(st_distance(st_cast(polygon, "POINT"))))
-# }
-# str(lakes)
-# poly.distance(st_geometry(lakes[4,]))
-# df.poly <- matrix(NA,ncol=2,nrow=nrow(lakes))
-# for (jj in 2001:2500){
-#   df.poly[jj,1] <- poly.distance(st_geometry(lakes[jj,]))
-#   df.poly[jj,2] <- 10^(0.336 * log10(df.poly[jj,1]) - 0.245) # https://www.nrcresearchpress.com/doi/pdfplus/10.1139/f90-108
-#   print(paste0(jj,' of ', nrow(df.poly),' and we use ',object.size(df.poly)))
-# }
-
-
-# sapply(st_geometry(lakes), poly.distance)
-# purrr::map(st_geometry(lakes), poly.distance)
 
 ## load example data
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 
-for (ii in lks){
+for (ii in lks[c(9, 10, 11, 13, 14, 15, 16, 17, 8)]){
   print(paste0('Running ',ii))
   data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'temperatures.csv', include.dirs = T)))
   meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T)))
@@ -111,49 +84,38 @@ for (ii in lks){
   input.values <- input(wtemp = data, H = H, A = A)
   
   proc.obs <- preprocess_obs(obs,input.values = input.values, H, A)
+  w.obs <- weigh_obs(obs,input.values = input.values, H, A)
+  obs_long <- w.obs[[1]]
+  obs_weigh <- w.obs[[2]]
+  
 
-  fsed_stratified = 0.01 *100
+  fsed_stratified_epi = 0.01 *100
+  fsed_stratified_hypo = 0.01 *100
   fsed_not_stratified  =  0.0002
   nep_stratified = 0.1
   nep_not_stratified = 0
   min_stratified = 0.1
   min_not_stratified = 0
   
-  init.val = c(0.5, 0.1, 0.01)
-  target.iter = 10
+  init.val = c(0.5, 0.5, 0.1, 0.01)
+  target.iter = 30
   
-  # nelder-mead
-  # modelopt <- neldermeadb(fn = optim_do, init.val, lower = c(0., -0.5, -0.1),
-  #                         upper = c(1.0, 0.5, 0.1), adapt = TRUE, tol = 1e-2,
-  #                         maxfeval = target.iter, input.values = input.values,
-  #                         fsed_not_stratified = fsed_not_stratified,
-  #                         nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind,
-  #                         verbose = verbose, proc.obs)
-
-  # simulated annealling
-  # modelopt <- GenSA(par = init.val, fn = optim_do, lower = c(0., -0.5, -0.1),
-  #                   upper = c(1.0, 0.5, 0.1),
-  #                   input.values = input.values,
-  #                   fsed_not_stratified = fsed_not_stratified,
-  #                   nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, wind, proc.obs,
-  #                   verbose = verbose,
-  #                   control=list(max.time = 120))
-  
-  modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = c(0., -0.5, -0.1),
-                    upper = c(1.0, 0.5, 0.1), sigma = 0.5,
+  modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = c(0.0, 0.0, -0.5, -0.1),
+                    upper = c(1.0, 1.0, 0.5, 0.1), sigma = 0.5,
                     stopfitness = -Inf, 
                     stopeval = target.iter,
                     input.values = input.values,
                     fsed_not_stratified = fsed_not_stratified,
                     nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified, 
-                    wind, proc.obs,
+                    wind, proc.obs = obs_weigh,
                     verbose = verbose)
 
-  o2<- calc_do(input.values = input.values,fsed_stratified = modelopt$xmin[1],
+  o2<- calc_do(input.values = input.values,fsed_stratified_epi = modelopt$xmin[1],
+               fsed_stratified_hypo = modelopt$xmin[2],
                fsed_not_stratified,
-               nep_stratified = modelopt$xmin[2],
+               nep_stratified = modelopt$xmin[3],
                nep_not_stratified,
-               min_stratified = modelopt$xmin[3],
+               min_stratified = modelopt$xmin[4],
                min_not_stratified, wind)
   
   input.values$o2_epil <- o2[,"o2_epil"]
@@ -169,22 +131,27 @@ for (ii in lks){
   test_data$doy <- yday(test_data$day)
   
   # fit = calc_rmse(test_data)
-  fit = calc_fit(input.values , proc.obs )
+  fit = calc_fit(input.values , proc.obs = obs_weigh )
   
   pgm <- input.values %>%
     dplyr::select(datetime, o2_epil, o2_hypo, o2_total, vol_epil, vol_hypo, 'vol_total' = total_vol)
+  input.pgm <- input.values %>%
+    dplyr::select(datetime, "depth_td" = td.depth, "area_td" = td_area, "area_surf" = surf_area,
+                  "wtemp_total" = t.total,
+                  'wtemp_epil' = t.epil, "wtemp_hypo" = t.hypo,
+                  'vol_total' = total_vol, vol_epil, vol_hypo)
   
-  write_delim(input.values, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_',round(fit,1),'_alldata.txt'), delim = '\t')
+  write_delim(input.pgm, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_',round(fit,1),'_alldata.txt'), delim = '\t')
   write_delim(pgm, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_',round(fit,1),'_oxymodel.txt'), delim = '\t')
-  write_delim(obs, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_obs.txt'), delim = '\t')
+  write_delim(obs_long, path = paste0(ii,'/',sub("\\).*", "", sub(".*\\(", "", ii)) ,'_obs.txt'), delim = '\t')
 
-  observed <- data.frame('time' = input.values$datetime[proc.obs[1,]],
-                            'year' = input.values$year[proc.obs[1,]],
-                            'doy' = input.values$doy[proc.obs[1,]],
-                            'epi' =proc.obs[3,],
-                            'hypo' = proc.obs[4,],
-                         'epi_sim' = input.values$o2_epil[proc.obs[1,]]/input.values$vol_epil[proc.obs[1,]]/1000,
-                         'hypo_sim' = input.values$o2_hypo[proc.obs[1,]]/input.values$vol_hypo[proc.obs[1,]]/1000)
+  observed <- data.frame('time' = input.values$datetime[obs_weigh[1,]],
+                            'year' = input.values$year[obs_weigh[1,]],
+                            'doy' = input.values$doy[obs_weigh[1,]],
+                            'epi' =obs_weigh[3,],
+                            'hypo' = obs_weigh[4,],
+                         'epi_sim' = input.values$o2_epil[obs_weigh[1,]]/input.values$vol_epil[obs_weigh[1,]]/1000,
+                         'hypo_sim' = input.values$o2_hypo[obs_weigh[1,]]/input.values$vol_hypo[obs_weigh[1,]]/1000)
   
   g1 <- ggplot(input.values) +
     geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
@@ -195,14 +162,8 @@ for (ii in lks){
     theme_bw() +
     geom_point(data = observed, aes(doy, epi, col = 'Obs_Epi'), size =2, alpha = 0.5) +
     geom_point(data = observed, aes(doy, hypo, col = 'Obs_Hypo'), size =2, alpha = 0.5)
-  ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300, width=216,height=150,units='mm')
-  
-  g2 <- ggplot(input.values, aes(doy, td.depth)) +
-    geom_line() +
-    facet_wrap(~year) +
-    theme_bw()
-  ggsave(file = paste0(ii,'/predicted_td.png'), g2, dpi=300, width=216,height=150,units='mm')
-  
+  ggsave(file = paste0(ii,'/oxymodel.png'), g1, dpi=300,width=316,height=190,units='mm')
+
 
   g3 <- ggplot(observed, aes(time, epi - epi_sim, col = 'epilimnion')) +
     geom_point(size = 2) +
@@ -211,7 +172,21 @@ for (ii in lks){
     geom_line(aes(time, hypo - hypo_sim, col = 'hypolimnion'))+
     ylab('Residuals (obs-mod)')+
     theme_bw()
-  ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=216,height=216,units='mm')
+  ggsave(file = paste0(ii,'/predicted_ag_observed.png'), g3, dpi=300, width=316,height=190,units='mm')
+  
+  anno = 2000
+  
+  g4 <- ggplot(subset(input.values, year == anno)) +
+    geom_point(aes(doy, (o2_total/total_vol/1000), col = 'Total')) +
+    geom_point(aes(doy, (o2_epil/vol_epil/1000), col = 'Epi')) +
+    geom_point(aes(doy, (o2_hypo/vol_hypo/1000), col = 'Hypo')) +
+    ylim(0,20)+
+    #facet_wrap(~year) +
+    theme_bw() +
+    geom_point(data = subset(observed, year == anno), aes(doy, epi, col = 'Obs_Epi'), size =2, alpha = 0.5) +
+    geom_point(data = subset(observed, year == anno), aes(doy, hypo, col = 'Obs_Hypo'), size =2, alpha = 0.5);g4
+  ggsave(file = paste0(ii,'/oxymodel_2000.png'), g4, dpi=300,width=316,height=190,units='mm')
+  
   
   eval.info <- data.frame('id' = sub("\\).*", "", sub(".*\\(", "", ii)) ,
                           'time' = Sys.time(),
@@ -229,10 +204,10 @@ eval.df <- read.table('eval.csv', header = TRUE)
 
 g<- ggplot(eval.df, aes(Asurf, RMSE, col = MaxZ, label = ID)) + 
   geom_point(aes(size = nobs)) +   
-  scale_color_viridis(option="magma") +
+  scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') +
-  geom_text(check_overlap = TRUE,hjust = 0, nudge_x = 0.05) + 
+  geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) + 
   theme_bw();g
-ggsave(file = paste0('lake_results.png'), g, dpi=300, width=216,height=216,units='mm')
+ggsave(file = paste0('lake_results.png'), g, dpi=300, width=316,height=190,units='mm')
 
