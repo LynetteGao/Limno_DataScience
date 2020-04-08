@@ -14,7 +14,8 @@ calc_do(
   nep_not_stratified,
   min_stratified,
   min_not_stratified,
-  wind = NULL
+  wind = NULL,
+  khalf = NULL
 )
 }
 \arguments{
