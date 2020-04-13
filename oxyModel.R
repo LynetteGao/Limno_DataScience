@@ -88,49 +88,53 @@ for (ii in lks){
   min_not_stratified = 0 # mg/m3/d
   khalf <- 3000 # mg/m3
 
-  # o2<- calc_do(input.values = input.values,
-  #              fsed_stratified_epi = fsed_stratified_epi,
-  #              fsed_stratified_hypo = fsed_stratified_hypo,
-  #              fsed_not_stratified = fsed_not_stratified,
-  #              nep_stratified = nep_stratified,
-  #              nep_not_stratified = nep_not_stratified,
-  #              min_stratified = min_stratified,
-  #              min_not_stratified =min_not_stratified,
-  #              wind = wind,
-  #              khalf = khalf)
+  o2<- calc_do(input.values = input.values,
+               fsed_stratified_epi = fsed_stratified_epi,
+               fsed_stratified_hypo = fsed_stratified_hypo,
+               fsed_not_stratified = fsed_not_stratified,
+               nep_stratified = nep_stratified,
+               nep_not_stratified = nep_not_stratified,
+               min_stratified = min_stratified,
+               min_not_stratified =min_not_stratified,
+               wind = wind,
+               khalf = khalf)
   
   # fsed_stratified_epi fsed_stratified_hypo nep_stratified min_stratified, khalf
-  init.val = c(5, 5, 5, 5, 5)
-  target.iter = 50
-  lb <<- c(100, 100, -5, -5, 1000)
-  ub <<- c(6000, 6000, 5, 5, 6000)
-  
-  # calibration-validation
+  # init.val = c(5, 5, 5, 5, 5)
+  # target.iter = 60
+  # lb <<- c(100, 100, -5, -5, 1000)
+  # ub <<- c(6000, 6000, 5, 5, 6000)
+  # 
+  # # calibration-validation
   val.ratio <- 1/3
   cal.ratio <- 1 - val.ratio
-  
+
   val_data <- obs_weigh[, 1 : round(ncol(obs_weigh) * val.ratio)]
-  cal_data <- obs_weigh[, (1 + (round(ncol(obs_weigh) * val.ratio))) : ncol(obs_weigh)]
-
-  modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = rep(0,5),
-                    upper = rep(10,5), sigma = 0.5,
-                    stopfitness = -Inf,
-                    stopeval = target.iter,
-                    input.values = input.values,
-                    fsed_not_stratified = fsed_not_stratified,
-                    nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified,
-                    wind = wind, proc.obs = cal_data,
-                    verbose = verbose)
-
-  modelopt$xmin <- lb+(ub - lb)/(10)*(modelopt$xmin)
-
-  o2<- calc_do(input.values = input.values,fsed_stratified_epi = modelopt$xmin[1],
-               fsed_stratified_hypo = modelopt$xmin[2],
-               fsed_not_stratified,
-               nep_stratified = modelopt$xmin[3],
-               nep_not_stratified,
-               min_stratified = modelopt$xmin[4],
-               min_not_stratified, wind)
+  cal_data <- obs_weigh[, ((round(ncol(obs_weigh) * val.ratio))) : ncol(obs_weigh)]
+  # 
+  datval = data.frame('id' = ii, 'start' =input.values$datetime[obs_weigh[1, (1 + (round(ncol(obs_weigh) * val.ratio)))]])
+  write.table(datval, file ='calval.csv', append=TRUE, quote = FALSE, col.names = FALSE,
+              row.names = FALSE)
+  # 
+  # modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = rep(0,5),
+  #                   upper = rep(10,5), sigma = 0.5,
+  #                   stopfitness = -Inf,
+  #                   stopeval = target.iter,
+  #                   input.values = input.values,
+  #                   fsed_not_stratified = fsed_not_stratified,
+  #                   nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified,
+  #                   wind = wind, proc.obs = cal_data,
+  #                   verbose = verbose)
+  # 
+  # modelopt$xmin <- lb+(ub - lb)/(10)*(modelopt$xmin)
+  # 
+  # o2<- calc_do(input.values = input.values,fsed_stratified_epi = modelopt$xmin[1],
+  #              fsed_stratified_hypo = modelopt$xmin[2],
+  #              fsed_not_stratified,
+  #              nep_stratified = modelopt$xmin[3],
+  #              nep_not_stratified,
+  #              min_stratified = modelopt$xmin[4],
+  #              min_not_stratified, wind)
   
   input.values$o2_epil <- o2[,"o2_epil"]
   input.values$o2_hypo <- o2[,"o2_hypo"]
@@ -142,6 +146,11 @@ for (ii in lks){
   input.values$year <- year(input.values$datetime)
   input.values$doy <- yday(input.values$datetime)
 
+  ggplot(input.values)+
+    geom_line(aes(doy, t.epil, col='t.epil')) +
+    geom_line(aes(doy, td.depth, col='td.depth')) +
+    geom_line(aes(doy, t.hypo, col='t.hypo')) +
+    facet_wrap(~year)
   
   test_data<-compare_predict_versus_observed(obs,input.values) 
   test_data$year <- year(test_data$day)
@@ -153,12 +162,12 @@ for (ii in lks){
   print(paste0('calibration error: ', round(fit_cal,2)))
   
   pgm <- input.values %>%
-    dplyr::select(datetime, o2_epil, o2_hypo, o2_total, vol_epil, vol_hypo, 'vol_total' = total_vol)
+    dplyr::select(datetime, o2_epil, o2_hypo, o2_total, vol_epil, vol_hypo, 'vol_total' = vol_total)
   input.pgm <- input.values %>%
     dplyr::select(datetime, "depth_td" = td.depth, "area_td" = td_area, "area_surf" = surf_area,
                   "wtemp_total" = t.total,
                   'wtemp_epil' = t.epil, "wtemp_hypo" = t.hypo,
-                  'vol_total' = total_vol, vol_epil, vol_hypo)
+                  'vol_total' = vol_total, vol_epil, vol_hypo)
   o2$datetime <- input.values$datetime
   fluxes <- o2 %>%
     dplyr::select('datetime', 'Fsed_total', 'NEP_total', 'Fatm_total', 'Mineral_total',
@@ -190,7 +199,7 @@ for (ii in lks){
     theme_bw() +
     geom_point(data = observed, aes(doy, epi, col = 'Obs_Epi'), size =2, alpha = 0.5) +
     geom_point(data = observed, aes(doy, hypo, col = 'Obs_Hypo'), size =2, alpha = 0.5);g1
-  ggsave(file = paste0(ii,'/ODEM_oxymodel.png'), g1, dpi=300,width=316,height=190,units='mm')
+  ggsave(file = paste0(ii,'/ODEM_oxymodel.png'), g1, dpi=300,width=316,height=190,units='mm');g1
 
 
   
@@ -255,6 +264,7 @@ g1<- ggplot(eval.df, aes(Asurf, RMSE_cal, col = MaxZ, label = ID)) +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') + 
   ggtitle("calibration") +
+  ylim(0,6)+
   geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) + 
   theme_bw();g1
 g2<- ggplot(eval.df, aes(Asurf, RMSE_val, col = MaxZ, label = ID)) + 
@@ -263,6 +273,7 @@ g2<- ggplot(eval.df, aes(Asurf, RMSE_val, col = MaxZ, label = ID)) +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') +
   ggtitle("validation") +
+  ylim(0,6)+
   geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) + 
   theme_bw();g2
 g <- g1 + g2 + plot_annotation(tag_levels = 'A',
