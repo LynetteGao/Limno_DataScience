@@ -12,7 +12,9 @@ optim_do(
   min_not_stratified = 0,
   wind = NULL,
   proc.obs,
-  verbose
+  verbose,
+  startdate = NULL,
+  enddate = NULL
 )
 }
 \arguments{

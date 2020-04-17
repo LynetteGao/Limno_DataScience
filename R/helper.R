@@ -55,10 +55,57 @@ calc_td_depth <- function(wtemp){
     td.depth[ii] <- thermo.depth(temp[ii,], as.numeric(grd.info$depth))
     }
   }
-  plot(cbuoy.depth)
-  points(td.depth, col='red')
+  
+  zdeps <- as.numeric(grd.info$depth)
+  wlm.depth <- rep(NA, length(grd.info$datetime))
+  
+  for (ii in 1:length(wlm.depth)){
+    idx = !is.na(temp[ii,])
+    dens_data = dens[ii,idx]
+    dens.diff = rev(dens_data)[1] - dens_data[1]
+    
+    if (condition[ii] && abs(dens.diff) > 0.05){
+      
+      Ch <- rep(NA, length = length(dens_data))
+      for (jj in 1:(length(dens_data)-1)){
+        Ah = 1/(zdeps[jj+1]) * sum(dens_data[1:jj])
+        Bh = 1/(zdeps[length(zdeps)] -zdeps[jj]) * sum(dens_data[(jj + 1): length(dens_data)]) 
+        
+        diffAh = sum( (dens_data[jj:(jj+1)] - Ah)^2 )
+        diffBh = sum( (dens_data[jj:(jj+1)] - Bh)^2 )
+        
+        Ch[jj] = diffAh + diffBh
+      }
+      clineDep = zdeps[which.min(na.omit(Ch))]
+      wlm.depth[ii] <- clineDep
+    }
+  }
+  
+  # plot(cbuoy.depth)
+  # points(td.depth, col='red')
+  # 
+  # 
+  test <- data.frame('year' = year(grd.info$datetime), 'doy' = yday(grd.info$datetime),
+                     'depth' = wlm.depth)
+  
+  for (kk in unique(test$year)){
+    idx <- which(kk == test$year)
+    
+    dx <- test[idx,3]
+    dx[which(dx == (max(zdeps-1)))] = NA
+    dx[which(dx == 0)] = NA
+    
+    NonNAindex <- which(!is.na(dx))
+    if (length(na.omit(dx)) != 0){
+      firstNonNA <- min(NonNAindex)
+      lastNonNA <- max(NonNAindex)
+      dx[firstNonNA:lastNonNA] =na.approx(dx)
+    }
+    test[idx,3] <-  dx
+  }
+  # 
 
-  return(cbuoy.depth)
+  return(test$depth)#return(cbuoy.depth)#return(test$depth)
 }
 
 
@@ -185,7 +232,7 @@ input <- function(wtemp, H, A){
 #' @export
 #' 
 calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not_stratified,nep_stratified,nep_not_stratified,
-                  min_stratified, min_not_stratified, wind = NULL, khalf = NULL){
+                  min_stratified, min_not_stratified, wind = NULL, khalf = NULL, startdate = NULL, enddate = NULL){
   ##initialize the o2(hypo),o2(epil),o2(total)
   o2_data <- matrix(NA, nrow = length(input.values$td.depth), ncol = 17) # plus 11 fluxes
   colnames(o2_data) <- c("o2_epil","o2_hypo","o2_total",
@@ -197,7 +244,7 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
   
   init_o2sat <- o2.at.sat.base(temp=input.values$t.total[1],altitude = 300)*1000 # returns mg O2/L 
   # o2_data$o2_total[1] <- init_o2sat*input.values$vol_total[1] # returns mg O2 (m3 = 1000 L)
-  o2_data$o2_total[1] <- init_o2sat # returns mg O2 (m3 = 1000 L)
+  
   
   theta<-1.08
    if (is.null(khalf)){
@@ -206,8 +253,16 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
   
   td_not_exist <- is.na(input.values$td.depth)
   
-
-  for(day in 2:length(input.values$td.depth)){
+  if (is.null(startdate)){
+    startdate = 1
+  }
+  if (is.null(enddate)){
+    enddate =  length(input.values$td.depth)
+  }
+  
+  o2_data$o2_total[startdate] <- init_o2sat # returns mg O2 (m3 = 1000 L)
+  
+  for(day in (startdate + 1):enddate){
     
     K600<-ifelse(is.null(wind), k.cole.base(2),k.cole.base(wind[day]))
     
@@ -288,7 +343,7 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
         x_do <- ( o2_data[day - 1,"o2_epil"] * volumechange_epi) / input.values$vol_epil[day-1]
       }
       
-      Fepi <-  valid(volumechange_epi_proportion* x_do,
+      Fepi <-  valid(volumechange_epi_proportion* x_do * 0.02,
                      o2_data[day-1,"o2_epil"]) # o2_data[day-1,"o2_epil"]
       # Fepi <- 0.
       # Fepi <-  valid(volumechange_epi_proportion* o2_data[day-1,"o2_epil"],
@@ -321,7 +376,7 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
       } else {
         x_do <- ( o2_data[day - 1,"o2_hypo"] * abs(volumechange_hypo)) / input.values$vol_hypo[day-1]
       }
-      Fhypo <- valid(volumechange_hypo_proportion* x_do ,
+      Fhypo <- valid(volumechange_hypo_proportion* x_do * 0.02,
                      o2_data[day-1,"o2_hypo"]) # o2_data[day-1,"o2_hypo"]
       # Fhypo <- 0.
       # Fhypo <- valid(volumechange_hypo_proportion* o2_data[day-1,"o2_hypo"],
@@ -364,7 +419,7 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
     }
   }
 
-  return (o2_data)
+  return (o2_data) # [startdate:enddate,])
 }
 
 #' Compares simulated against measured variables
@@ -478,7 +533,7 @@ calc_fit <- function(input.values, proc.obs){
 #' @export
 #' 
 optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, min_not_stratified = 0.0,
-                     wind = NULL, proc.obs,verbose){
+                     wind = NULL, proc.obs,verbose,  startdate = NULL, enddate = NULL){
   p <- lb+(ub - lb)/(10)*(p)
   
   o2<- calc_do(input.values = input.values,fsed_stratified_epi = p[1],
@@ -487,7 +542,8 @@ optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stra
                nep_stratified = p[3],
                nep_not_stratified = nep_not_stratified,
                min_stratified = p[4],
-               min_not_stratified =min_not_stratified, wind =wind, khalf = p[5])
+               min_not_stratified =min_not_stratified, wind =wind, khalf = p[5],
+               startdate = startdate, enddate = enddate)
   
   input.values$o2_epil <- o2[,"o2_epil"]
   input.values$o2_hypo <- o2[,"o2_hypo"]

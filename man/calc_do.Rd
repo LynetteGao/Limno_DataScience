@@ -15,7 +15,9 @@ calc_do(
   min_stratified,
   min_not_stratified,
   wind = NULL,
-  khalf = NULL
+  khalf = NULL,
+  startdate = NULL,
+  enddate = NULL
 )
 }
 \arguments{
