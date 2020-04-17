@@ -95,13 +95,13 @@ for (ii in lks){
   obs_weigh <- w.obs[[2]]
   
 
-  fsed_stratified_epi = 1500 # mg/m2/d
-  fsed_stratified_hypo = 4500 # mg/m2/d
-  fsed_not_stratified  =  0.0002 # mg/m2/d
-  nep_stratified = 0.1 # mg/m3/d
+  nep_stratified = 100 # mg/m3/d
+  min_stratified = -50 #-200 # mg/m3/d
+  min_not_stratified  =  0 # mg/m2/d 
+  fsed_stratified_epi = 1500 # mg/m3/d 
   nep_not_stratified = 0 # mg/m3/d
-  min_stratified = -5 # mg/m3/d
-  min_not_stratified = 0 # mg/m3/d
+  fsed_stratified_hypo = 4500 # mg/m3/d 
+  fsed_not_stratified = 0 # mg/m3/d
   khalf <- 3000 # mg/m3
 
   o2<- calc_do(input.values = input.values,
@@ -116,12 +116,14 @@ for (ii in lks){
                khalf = khalf,
                startdate = NULL,
                enddate = NULL)
+  plot(o2$o2_hypo[1:1200]/1000)
+  points(o2$o2_epil[1:1200]/1000, col = 'blue')
   
   # fsed_stratified_epi fsed_stratified_hypo nep_stratified min_stratified, khalf
   init.val = c(5, 5, 5, 5, 5)
-  target.iter = 30
-  lb <<- c(100, 100, -5, -5, 1000)
-  ub <<- c(6000, 6000, 5, 5, 6000)
+  target.iter = 60
+  lb <<- c(100, 100, 10, -1000, 1000)
+  ub <<- c(6000, 6000, 1000, 1000, 7000) 
 
   # # calibration-validation
   val.ratio <- 1/3
@@ -235,17 +237,17 @@ for (ii in lks){
   colnames(m.all_params) <- c('year', 'Fsed_epi', 'Fsed_hypo', 'NEP', 'Mineral',
                             'khalf', 'RMSE')
   i1 <- ggplot(m.all_params, aes(year, RMSE)) +
-    geom_line() + geom_hline(yintercept=1.97)
+    geom_line() + geom_hline(yintercept=2.12)
   i2 <- ggplot(m.all_params, aes(year, Fsed_epi)) +
-    geom_line() + geom_hline(yintercept=1921.07)
+    geom_line() + geom_hline(yintercept=4536.41)
   i3 <- ggplot(m.all_params, aes(year, Fsed_hypo)) +
-    geom_line() + geom_hline(yintercept=6000)
+    geom_line() + geom_hline(yintercept=154.85)
   i4 <- ggplot(m.all_params, aes(year, NEP)) +
-    geom_line() + geom_hline(yintercept=3.92)
+    geom_line() + geom_hline(yintercept=10)
   i5 <- ggplot(m.all_params, aes(year, Mineral)) +
-    geom_line() + geom_hline(yintercept=-2.52)
+    geom_line() + geom_hline(yintercept=-1000)
   i6 <- ggplot(m.all_params, aes(year, khalf)) +
-    geom_line() + geom_hline(yintercept=3430.83)
+    geom_line() + geom_hline(yintercept=6591.92)
   
   p <- i1 + i2 + i3 + i4 + i5 + i6 & theme_minimal()
   p 
@@ -321,10 +323,10 @@ for (ii in lks){
     geom_point(aes(doy, Fsed_epi, col = 'Fsed_epi')) +
     geom_point(aes(doy, NEP_epi, col = 'NEP_epi')) +
     geom_point(aes(doy, Fatm_epi, col = 'Fatm_epi')) +
-    geom_point(aes(doy, Entrain_epi, col = 'Entrain_epi')) +
+    # geom_point(aes(doy, Entrain_epi, col = 'Entrain_epi')) +
     geom_point(aes(doy, Fsed_hypo, col = 'Fsed_hypo')) +
     geom_point(aes(doy, Mineral_hypo, col = 'Mineral_hypo')) +
-    geom_point(aes(doy, Entrain_hypo, col = 'Entrain_hypo')) +
+    # geom_point(aes(doy, Entrain_hypo, col = 'Entrain_hypo')) +
     # ylim(0,20)+
     facet_wrap(~year) +
     theme_bw();g23
