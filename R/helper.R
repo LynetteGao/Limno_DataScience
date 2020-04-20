@@ -86,7 +86,7 @@ calc_td_depth <- function(wtemp){
   # 
   # 
   test <- data.frame('year' = year(grd.info$datetime), 'doy' = yday(grd.info$datetime),
-                     'depth' = wlm.depth)
+                     'depth' = cbuoy.depth) #wlm.depth
   
   for (kk in unique(test$year)){
     idx <- which(kk == test$year)
@@ -233,7 +233,8 @@ input <- function(wtemp, H, A){
 #' 
 calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not_stratified,nep_stratified,nep_not_stratified,
                   min_stratified, min_not_stratified, wind = NULL, khalf = NULL, startdate = NULL, enddate = NULL){
-  ##initialize the o2(hypo),o2(epil),o2(total)
+  
+  ##initialize matrix
   o2_data <- matrix(NA, nrow = length(input.values$td.depth), ncol = 18) 
   colnames(o2_data) <- c("o2_epil","o2_hypo","o2_total",
                          'Fsed_total', "NEP_total", "Fatm_total", "Mineral_total",
@@ -243,10 +244,9 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
   o2_data <- as.data.frame(o2_data)
   
   init_o2sat <- o2.at.sat.base(temp=input.values$t.total[1],altitude = 300)*1000 # returns mg O2/L 
-  # o2_data$o2_total[1] <- init_o2sat*input.values$vol_total[1] # returns mg O2 (m3 = 1000 L)
-  
   
   theta<-1.08
+  
    if (is.null(khalf)){
      khalf <- 4800.
    }
@@ -266,35 +266,30 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
     
     K600<-ifelse(is.null(wind), k.cole.base(2),k.cole.base(wind[day]))
     
-    
-    ## not stratified period, only consider the o2(total)
+    ## not stratified period, only consider o2_total dynamics
     if(td_not_exist[day]){
-      theta_total <- theta^(input.values$t.total[day]-20)
+      theta_total <- theta^(input.values$t.total[day-1]-20)
       
-      # NEP <- valid(nep_not_stratified * input.values$vol_total[day] * theta_total/ input.values$vol_total[day]*(o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]),
-      #              o2_data[day-1,"o2_total"])
-      # 
-      # MINER <- valid(min_not_stratified * input.values$vol_total[day] * theta_total/ input.values$vol_total[day]*(o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]),
-      #              o2_data[day-1,"o2_total"])
+      NEP <- (nep_not_stratified * theta_total *(o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]))
       
-      NEP <- (nep_not_stratified * input.values$vol_total[day] * theta_total/ input.values$vol_total[day]*(o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]))
-      
-      MINER <- (min_not_stratified * input.values$vol_total[day] * theta_total/ input.values$vol_total[day]*(o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]))
+      MINER <- (min_not_stratified * theta_total*(o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]))
       
       kO2 <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.total[day],gas='O2') # velocity value m/d?
       o2sat<-o2.at.sat.base(temp=input.values$t.total[day],altitude = 300)*1000 # mg O2/L -> mg/m3
-      # Fatm <- valid(kO2*(o2sat - o2_data[day-1,"o2_total"])/max(H),
-      #               o2_data[day-1,"o2_total"])
-      # 
-      # Fsed <- valid(fsed_not_stratified * (o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]) * theta_total * input.values$surf_area[day] / input.values$vol_total[day],
-      #               o2_data[day-1,"o2_total"])
-      
+
       Fatm <- (kO2*(o2sat - o2_data[day-1,"o2_total"])/max(H))
       
-      Fsed <- (fsed_not_stratified * (o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]) * theta_total * input.values$surf_area[day] / input.values$vol_total[day])
+      Fsed <- (fsed_not_stratified * (o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]) * theta_total * input.values$surf_area[day-1] / input.values$vol_total[day-1])
       
-
-      o2_data[day,"o2_total"] <- o2_data[day-1,"o2_total"]+ valid((Fsed + NEP + Fatm + MINER),o2_data[day-1,"o2_total"]) 
+      o2_data[day,"o2_total"] <-( o2_data[day-1,"o2_total"]+ valid((Fsed + NEP + Fatm + MINER),o2_data[day-1,"o2_total"]) ) * ( input.values$vol_total[day-1]/ input.values$vol_total[day])
+      
+      if (valid((Fsed + NEP + Fatm + MINER), o2_data[day-1,"o2_total"]) != (Fsed + NEP + Fatm + MINER)){
+        Fsed <- Fsed/(Fsed + NEP + Fatm + MINER) * o2_data[day-1,"o2_total"]
+        NEP <- NEP/(Fsed + NEP + Fatm + MINER) * o2_data[day-1,"o2_total"]
+        Fatm <- Fatm/(Fsed + NEP + Fatm + MINER)* o2_data[day-1,"o2_total"]
+        MINER <- MINER/(Fsed + NEP + Fatm + MINER) * o2_data[day-1,"o2_total"]
+      }
+      
       o2_data[day,"Fsed_total"] <- Fsed 
       o2_data[day,"NEP_total"] <- NEP
       o2_data[day,"Fatm_total"] <- Fatm
@@ -304,47 +299,12 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
     }
     # the day it turns to stratified, need to reassign the o2 to hypo and epil
     else if(is.na(input.values$td.depth[day-1])){
-      o2_data[day,"o2_epil"] <- (o2_data[day-1,"o2_total"]*input.values$vol_epil[day])/input.values$vol_total[day]#/input.values$t.total[day]*input.values$vol_epil[day]
-      o2_data[day,"o2_hypo"] <- (o2_data[day-1,"o2_total"]*input.values$vol_hypo[day])/input.values$vol_total[day]#/input.values$t.total[day]*input.values$vol_hypo[day]
+      o2_data[day,"o2_epil"] <- (o2_data[day-1,"o2_total"]*input.values$vol_epil[day])/input.values$vol_total[day]
+      o2_data[day,"o2_hypo"] <- (o2_data[day-1,"o2_total"]*input.values$vol_hypo[day])/input.values$vol_total[day]
       o2_data[day,"o2_total"] <- (o2_data[day,"o2_hypo"]* input.values$vol_hypo[day] + o2_data[day,"o2_epil"] * input.values$vol_epil[day])/input.values$vol_total[day]
       # o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_total"]#((o2_data[day-1,"o2_total"]*input.values$vol_epil[day])/input.values$vol_total[day]) #/ input.values$vol_epil[day] #/input.values$t.total[day]*input.values$vol_epil[day]
       # o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_total"]#((o2_data[day-1,"o2_total"]*input.values$vol_hypo[day])/input.values$vol_total[day])  #/ input.values$vol_hypo[day] #/input.values$t.total[day]*input.values$vol_hypo[day]
       # o2_data[day,"o2_total"]<- (o2_data[day,"o2_epil"]+o2_data[day,"o2_hypo"]) /2 #/ input.values$vol_total[day] 
-      
-      # calculate for this day
-      # theta_epil <- theta^(input.values$t.epil[day]-20)
-      # theta_hypo <-  theta^(input.values$t.hypo[day]-20)
-      # NEP_epil <- valid(nep_stratified * input.values$vol_epil[day] * theta_epil/ input.values$vol_epil[day] *  (o2_data[day,"o2_epil"])/(khalf + o2_data[day,"o2_epil"]),
-      #                   o2_data[day,"o2_epil"])
-      # kO2_epil <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.epil[day],gas='O2')
-      # o2sat_epil<-o2.at.sat.base(temp=input.values$t.epil[day],altitude = 300)*1000
-      # Fatm_epil <- valid(kO2_epil*(o2sat_epil-o2_data[day,"o2_epil"] )/input.values$td.depth[day],
-      #                    o2_data[day,"o2_epil"])
-      # Fepi <- 0.
-      # Fsed_epi <- valid(fsed_stratified_epi * (o2_data[day,"o2_epil"])/(khalf + o2_data[day,"o2_epil"]) * theta_epil * input.values$surf_area[day] /input.values$vol_epil[day],
-      #                   o2_data[day,"o2_epil"])
-      # o2_data[day,"o2_epil"] <- o2_data[day,"o2_epil"] + (NEP_epil+Fatm_epil + Fepi + Fsed_epi)
-      # if (o2_data[day,"o2_epil"] < 0){
-      #   o2_data[day,"o2_epil"] <- 0.
-      # }
-      # o2_data[day,"Fsed_epi"] <- Fsed_epi 
-      # o2_data[day,"NEP_epi"] <- NEP_epil
-      # o2_data[day,"Fatm_epi"] <- Fatm_epil
-      # o2_data[day,"Entrain_epi"] <- Fepi
-      # Fhypo <- 0.
-      # MINER_hypo <- valid(min_stratified * input.values$vol_hypo[day] * theta_hypo / input.values$vol_hypo[day] * (o2_data[day,"o2_hypo"])/(khalf + o2_data[day,"o2_hypo"]),
-      #                     o2_data[day,"o2_hypo"])
-      # Fsed_hypo <- valid(fsed_stratified_hypo * (o2_data[day,"o2_hypo"])/(khalf + o2_data[day,"o2_hypo"]) * theta_hypo * input.values$td_area[day] / input.values$vol_hypo[day],
-      #                    o2_data[day,"o2_hypo"])
-      # o2_data[day,"o2_hypo"] <- o2_data[day,"o2_hypo"] + (Fhypo + Fsed_hypo + MINER_hypo)
-      # 
-      # # if (o2_data[day,"o2_hypo"] < 0){
-      #   # o2_data[day,"o2_hypo"] <- 0.
-      # # }
-      # o2_data[day,"o2_total"] <- (o2_data[day,"o2_hypo"]* input.values$vol_hypo[day] + o2_data[day,"o2_epil"] * input.values$vol_epil[day])/input.values$vol_total[day]
-      # o2_data[day,"Fsed_hypo"] <- Fsed_hypo 
-      # o2_data[day,"Mineral_hypo"] <- MINER_hypo
-      # o2_data[day,"Entrain_hypo"] <- Fhypo
       
       o2sat<-o2.at.sat.base(temp=input.values$t.epil[day],altitude = 300)*1000 
       o2_data[day,"sat_o2_epil"] <- (100. * o2_data[day,"o2_epil"])/ o2sat
@@ -353,81 +313,67 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
       o2sat<-o2.at.sat.base(temp=input.values$t.total[day],altitude = 300)*1000 
       o2_data[day,"sat_o2_total"] <- (100. * o2_data[day,"o2_total"] )/ o2sat
     }else{
-      theta_epil <- theta^(input.values$t.epil[day]-20)
-      theta_hypo <-  theta^(input.values$t.hypo[day]-20)
+      theta_epil <- theta^(input.values$t.epil[day-1]-20)
+      theta_hypo <-  theta^(input.values$t.hypo[day-1]-20)
       
-
-      # NEP_epil <- valid(nep_stratified * input.values$vol_epil[day] * theta_epil/ input.values$vol_epil[day] *(o2_data[day-1,"o2_epil"])/(khalf + o2_data[day-1,"o2_epil"]),
-      #                   o2_data[day-1,"o2_epil"])
-      
-      NEP_epil <- (nep_stratified * input.values$vol_epil[day] * theta_epil/ input.values$vol_epil[day] *(o2_data[day-1,"o2_epil"])/(khalf + o2_data[day-1,"o2_epil"]))
+      NEP_epil <- (nep_stratified * theta_epil *(o2_data[day-1,"o2_epil"])/(khalf + o2_data[day-1,"o2_epil"]))
               
-      
       kO2_epil <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.epil[day],gas='O2')
       o2sat_epil<-o2.at.sat.base(temp=input.values$t.epil[day],altitude = 300)*1000
 
-      # Fatm_epil <- valid(kO2_epil*(o2sat_epil-o2_data[day-1,"o2_epil"] )/input.values$td.depth[day],
-      #                    o2_data[day-1,"o2_epil"])
-      Fatm_epil <- (kO2_epil*(o2sat_epil-o2_data[day-1,"o2_epil"] )/input.values$td.depth[day])
+      Fatm_epil <- (kO2_epil*(o2sat_epil-o2_data[day-1,"o2_epil"] )/input.values$td.depth[day-1])
      
       
       volumechange_epi = input.values$vol_epil[day]-input.values$vol_epil[day-1]  
-      volumechange_epi_proportion =  volumechange_epi/input.values$vol_epil[day] 
+      volumechange_epi_proportion =  volumechange_epi/input.values$vol_epil[day-1] 
       if (volumechange_epi_proportion >= 0){
-        x_do <- ( o2_data[day - 1,"o2_hypo"] * abs(volumechange_epi)) / input.values$vol_hypo[day-1]
+        x_do <- o2_data[day - 1,"o2_hypo"] #( o2_data[day - 1,"o2_hypo"] * abs(volumechange_epi)) / input.values$vol_hypo[day-1]
       } else {
-        x_do <- ( o2_data[day - 1,"o2_epil"] * abs(volumechange_epi)) / input.values$vol_epil[day-1]
+        x_do <- o2_data[day - 1,"o2_epil"] #( o2_data[day - 1,"o2_epil"] * abs(volumechange_epi)) / input.values$vol_epil[day-1]
       }
       
-      # Fepi <-  valid(volumechange_epi_proportion* x_do ,
-      #                o2_data[day-1,"o2_epil"])
       Fepi <-  (volumechange_epi_proportion* x_do)
-      # Fepi <- 0.
 
-      # Fsed_epi <- valid(fsed_stratified_epi * (o2_data[day-1,"o2_epil"])/(khalf + o2_data[day-1,"o2_epil"]) * theta_epil * input.values$surf_area[day] /input.values$vol_epil[day],
-      #               o2_data[day-1,"o2_epil"])
-      Fsed_epi <- (fsed_stratified_epi * (o2_data[day-1,"o2_epil"])/(khalf + o2_data[day-1,"o2_epil"]) * theta_epil * input.values$surf_area[day] /input.values$vol_epil[day])
+      Fsed_epi <- (fsed_stratified_epi * (o2_data[day-1,"o2_epil"])/(khalf + o2_data[day-1,"o2_epil"]) * theta_epil * input.values$surf_area[day-1] /input.values$vol_epil[day-1])
 
-      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_epil"] + valid((NEP_epil+Fatm_epil + Fepi + Fsed_epi) , o2_data[day-1,"o2_epil"])
-      # if (o2_data[day,"o2_epil"] < 0){
-        # o2_data[day,"o2_epil"] <- 0.
-      # }
+      o2_data[day,"o2_epil"] <- (o2_data[day-1,"o2_epil"] + valid((NEP_epil+Fatm_epil + Fepi + Fsed_epi) , o2_data[day-1,"o2_epil"]) ) * (input.values$vol_epil[day-1]/input.values$vol_epil[day])
+      
+      if (valid((NEP_epil+Fatm_epil + Fepi + Fsed_epi), o2_data[day-1,"o2_epil"]) != (NEP_epil+Fatm_epil + Fepi + Fsed_epi)){
+        Fsed_epi <- Fsed_epi/(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
+        NEP_epil <- NEP_epil(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
+        Fatm_epil <- Fatm_epil/(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
+        Fepi <- Fepi/(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
+      }
+      
       o2_data[day,"Fsed_epi"] <- Fsed_epi 
       o2_data[day,"NEP_epi"] <- NEP_epil
       o2_data[day,"Fatm_epi"] <- Fatm_epil
       o2_data[day,"Entrain_epi"] <- Fepi
 
       volumechange_hypo = input.values$vol_hypo[day]-input.values$vol_hypo[day-1]  #in m^3
-      volumechange_hypo_proportion =  volumechange_hypo/input.values$vol_hypo[day] 
+      volumechange_hypo_proportion =  volumechange_hypo/input.values$vol_hypo[day-1] 
       
       if (volumechange_hypo_proportion >= 0){
-        x_do <- ( o2_data[day - 1,"o2_epil"] * abs(volumechange_hypo)) / input.values$vol_epil[day-1]
+        x_do <-  o2_data[day - 1,"o2_epil"] #( o2_data[day - 1,"o2_epil"] * abs(volumechange_hypo)) / input.values$vol_epil[day-1]
       } else {
-        x_do <- ( o2_data[day - 1,"o2_hypo"] * abs(volumechange_hypo)) / input.values$vol_hypo[day-1]
+        x_do <- o2_data[day - 1,"o2_hypo"] #( o2_data[day - 1,"o2_hypo"] * abs(volumechange_hypo)) / input.values$vol_hypo[day-1]
       }
-      # Fhypo <- valid(volumechange_hypo_proportion* x_do ,
-      #                o2_data[day-1,"o2_hypo"]) 
+
       Fhypo <- (volumechange_hypo_proportion* x_do ) 
-      # Fhypo <- 0.
 
-      
-      # MINER_hypo <- valid(min_stratified * input.values$vol_hypo[day] * theta_hypo / input.values$vol_hypo[day] * (o2_data[day-1,"o2_hypo"])/(khalf + o2_data[day-1,"o2_hypo"]),
-      #                   o2_data[day-1,"o2_hypo"])
-      # 
-      # 
-      # Fsed_hypo <- valid(fsed_stratified_hypo * (o2_data[day-1,"o2_hypo"])/(khalf + o2_data[day-1,"o2_hypo"]) * theta_hypo * input.values$td_area[day] / input.values$vol_hypo[day],
-      #                   o2_data[day-1,"o2_hypo"])
-      MINER_hypo <- (min_stratified * input.values$vol_hypo[day] * theta_hypo / input.values$vol_hypo[day] * (o2_data[day-1,"o2_hypo"])/(khalf + o2_data[day-1,"o2_hypo"]))
+      MINER_hypo <- (min_stratified * theta_hypo  * (o2_data[day-1,"o2_hypo"])/(khalf + o2_data[day-1,"o2_hypo"]))
       
       
-      Fsed_hypo <- (fsed_stratified_hypo * (o2_data[day-1,"o2_hypo"])/(khalf + o2_data[day-1,"o2_hypo"]) * theta_hypo * input.values$td_area[day] / input.values$vol_hypo[day])
+      Fsed_hypo <- (fsed_stratified_hypo * (o2_data[day-1,"o2_hypo"])/(khalf + o2_data[day-1,"o2_hypo"]) * theta_hypo * input.values$td_area[day-1] / input.values$vol_hypo[day-1])
       
 
-      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_hypo"] + valid((Fhypo + Fsed_hypo + MINER_hypo), o2_data[day-1,"o2_hypo"]) 
-      
-      # if (o2_data[day,"o2_hypo"] < 0){
-      # o2_data[day,"o2_hypo"] <- 0.
-      # }
+      o2_data[day,"o2_hypo"] <- (o2_data[day-1,"o2_hypo"] + valid((Fhypo + Fsed_hypo + MINER_hypo), o2_data[day-1,"o2_hypo"]) ) * (input.values$vol_hypo[day-1]/input.values$vol_hypo[day])
+
+      if (valid((Fhypo + Fsed_hypo + MINER_hypo), o2_data[day-1,"o2_hypo"]) != (Fhypo + Fsed_hypo + MINER_hypo)){
+        Fsed_hypo <- Fsed_hypo/(Fhypo + Fsed_hypo + MINER_hypo) * o2_data[day-1,"o2_hypo"]
+        Fhypo <- Fhypo/(Fhypo + Fsed_hypo + MINER_hypo) * o2_data[day-1,"o2_hypo"]
+        MINER_hypo <- MINER_hypo/(Fhypo + Fsed_hypo + MINER_hypo) * o2_data[day-1,"o2_hypo"]
+      }
 
 
       o2_data[day,"o2_total"] <- (o2_data[day,"o2_hypo"]* input.values$vol_hypo[day] + o2_data[day,"o2_epil"] * input.values$vol_epil[day])/input.values$vol_total[day]
@@ -445,10 +391,10 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
       
       # mass balance
       mass_thr <- sum(c(o2_data$o2_epil[day-1] * input.values$vol_epil[day-1], o2_data$o2_hypo[day-1] * input.values$vol_hypo[day-1])) +
-       ( (NEP_epil + Fatm_epil + Fepi + Fsed_epi) * input.values$vol_epil[day] + (MINER_hypo + Fhypo + Fsed_hypo ) * input.values$vol_hypo[day])
+       ( (NEP_epil + Fatm_epil + Fepi + Fsed_epi) * (input.values$vol_epil[day-1]) + (MINER_hypo + Fhypo + Fsed_hypo ) * (input.values$vol_hypo[day-1]))
       mass_balance <-  sum(c(o2_data$o2_epil[day]*input.values$vol_epil[day], o2_data$o2_hypo[day]* input.values$vol_hypo[day])) - mass_thr
       o2_data[day,"massbal"] <- mass_balance
-      print(mass_balance)
+      # print(mass_balance)
     }
     if (is.na(o2_data[day, "o2_total"])) {
       break

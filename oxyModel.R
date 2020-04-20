@@ -95,35 +95,88 @@ for (ii in lks){
   obs_weigh <- w.obs[[2]]
   
 
-  nep_stratified = 100 # mg/m3/d
-  min_stratified = -50 #-200 # mg/m3/d
-  min_not_stratified  =  0 # mg/m2/d 
-  fsed_stratified_epi = 1500 # mg/m3/d 
-  nep_not_stratified = 0 # mg/m3/d
-  fsed_stratified_hypo = 4500 # mg/m3/d 
-  fsed_not_stratified = 0 # mg/m3/d
-  khalf <- 3000 # mg/m3
+  # nep_stratified = 100 # mg/m3/d
+  # min_stratified = -50 #-200 # mg/m3/d
+  # min_not_stratified  =  0 # mg/m2/d 
+  # fsed_stratified_epi = -1500 # mg/m3/d 
+  # nep_not_stratified = 0 # mg/m3/d
+  # fsed_stratified_hypo = -4500 # mg/m3/d 
+  # fsed_not_stratified = 0 # mg/m3/d
+  # khalf <- 3000 # mg/m3
+  # 
+  # startdate = 1
+  # enddate = nrow(input.values)
+  # o2<- calc_do(input.values = input.values,
+  #              fsed_stratified_epi = fsed_stratified_epi,
+  #              fsed_stratified_hypo = fsed_stratified_hypo,
+  #              fsed_not_stratified = fsed_not_stratified,
+  #              nep_stratified = nep_stratified,
+  #              nep_not_stratified = nep_not_stratified,
+  #              min_stratified = min_stratified,
+  #              min_not_stratified =min_not_stratified,
+  #              wind = wind, 
+  #              khalf = khalf,
+  #              startdate = startdate,
+  #              enddate = enddate)
 
-  o2<- calc_do(input.values = input.values,
-               fsed_stratified_epi = fsed_stratified_epi,
-               fsed_stratified_hypo = fsed_stratified_hypo,
-               fsed_not_stratified = fsed_not_stratified,
-               nep_stratified = nep_stratified,
-               nep_not_stratified = nep_not_stratified,
-               min_stratified = min_stratified,
-               min_not_stratified =min_not_stratified,
-               wind = wind,
-               khalf = khalf,
-               startdate = NULL,
-               enddate = NULL)
-  plot(o2$o2_hypo[1:1200]/1000)
-  points(o2$o2_epil[1:1200]/1000, col = 'blue')
+  
+  #mass balance code
+  # o2 <- o2[startdate: enddate,]
+  # o2$time <- input.values$datetime[startdate:enddate]
+  # print(paste0('mass balance kept by ',round((100*sum(abs(o2$massbal) <1, na.rm = TRUE))/ sum(!is.na(o2$massbal)), 0),'% of the data'))
+  # plot(o2$o2_epil)
+  # plot(o2$o2_hypo)
+  # t1 <- ggplot(o2, aes(time, Fsed_epi, col = Fsed_epi)) + geom_point()
+  # t2 <- ggplot(o2, aes(time, NEP_epi, col = NEP_epi)) + geom_point()
+  # t3 <- ggplot(o2, aes(time, Fatm_epi, col = Fatm_epi)) + geom_point()
+  # t4 <- ggplot(o2, aes(time, Entrain_epi, col = Entrain_epi)) + geom_point()
+  # t5 <- ggplot(o2, aes(time, Fsed_hypo, col = Fsed_hypo)) + geom_point()
+  # t6 <- ggplot(o2, aes(time, Mineral_hypo, col = Mineral_hypo)) + geom_point()
+  # t7 <- ggplot(o2, aes(time, Entrain_hypo, col = Entrain_hypo)) + geom_point()
+  # t8 <- ggplot(o2, aes(time, o2_epil, col = o2_epil)) + geom_point()
+  # t9 <- ggplot(o2, aes(time, o2_hypo, col = o2_hypo)) + geom_point()
+  # t1 + t2 + t3 + t4 +t5 + t6+ t7 + t8 + t9
+  # 
+  # plot(input.values$datetime[startdate: enddate],o2$massbal[startdate: enddate]/input.values$vol_total[startdate: enddate]/1000,
+  #      ylab = 'Mass balance O2 difference (mg/L)',
+  #      xlab = '')
+  # plot(input.values$datetime[startdate: enddate],o2$massbal[startdate: enddate],
+  #      ylab = 'Mass balance O2 difference (mg)',
+  #      xlab = '')
+  # boxplot(o2$massbal, ylab = 'Mass balance O2 difference (mg/L')
+  # sum(o2$massbal/input.values$vol_total[startdate: enddate]/1000, na.rm = TRUE)
+  # 
+  # all_fluxes <- cbind((o2$NEP_total + o2$Fatm_total + o2$Mineral_total + o2$Fsed_total) * input.values$vol_total[startdate: enddate],
+  #                     (o2$NEP_epi + o2$Fatm_epi + o2$Entrain_epi + o2$Fsed_epi) * input.values$vol_epil[startdate: enddate],
+  #                     (o2$Mineral_hypo + o2$Entrain_hypo + o2$Fsed_hypo) * input.values$vol_hypo[startdate: enddate])
+  # sum.all_fluxes <- apply(all_fluxes, 1, sum, na.rm= TRUE)
+  # 
+  # all_concfluxes <- cbind((o2$NEP_total + o2$Fatm_total + o2$Mineral_total + o2$Fsed_total),
+  #                         (o2$NEP_epi + o2$Fatm_epi + o2$Entrain_epi + o2$Fsed_epi),
+  #                         (o2$Mineral_hypo + o2$Entrain_hypo + o2$Fsed_hypo) )
+  # sum.all_concfluxes <- apply(all_concfluxes, 1, sum, na.rm= TRUE)
+  # 
+  # df.msblc <- data.frame('time' = input.values$datetime[startdate: enddate], 'cumsum_do' = cumsum(c(0,diff(o2$o2_total * input.values$vol_total[startdate: enddate]))),
+  #                        'cumsum_fluxes' = cumsum(sum.all_fluxes))
+  # ggplot(df.msblc, aes((cumsum_do), (cumsum_fluxes), col = time)) + geom_point()
+  # 
+  # plot((diff(o2$o2_total * input.values$vol_total[startdate: enddate])), ylim = c(0,5e11))
+  # points((sum.all_fluxes), col = 'red')
+  # 
+  # 
+  # plot(c(0,diff(o2$o2_total * input.values$vol_total[startdate: enddate])) - sum.all_fluxes)
+  # plot(c(0,diff(o2$o2_total * input.values$vol_total[startdate: enddate])) - sum.all_fluxes, ylim = c(-1e13, 1e13))
+  # 
+  # sum(c(0,diff(o2$o2_total * input.values$vol_total[startdate: enddate]))) - sum(sum.all_fluxes)
+  # sum(abs(c(0,diff(o2$o2_total * input.values$vol_total[startdate: enddate])))) - sum(abs(sum.all_fluxes))
+  # sum(abs(c(0,diff(o2$o2_total)))) - sum(abs(sum.all_concfluxes))
+
   
   # fsed_stratified_epi fsed_stratified_hypo nep_stratified min_stratified, khalf
   init.val = c(5, 5, 5, 5, 5)
   target.iter = 60
-  lb <<- c(100, 100, 10, -1000, 1000)
-  ub <<- c(6000, 6000, 1000, 1000, 7000) 
+  lb <<- c(-100, -100, 10, -1000, 1000)
+  ub <<- c(-6000, -6000, 1000, 1000, 7000) 
 
   # # calibration-validation
   val.ratio <- 1/3
@@ -143,7 +196,7 @@ for (ii in lks){
                         input.values = input.values,
                         fsed_not_stratified = fsed_not_stratified,
                         nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified,
-                        wind = wind, proc.obs = obs_weigh, # caL_data
+                        wind = wind, proc.obs = cal_data, # caL_data
                         verbose = verbose, startdate = NULL, enddate = NULL)
   
   print(modelopt$fmin)
@@ -182,77 +235,84 @@ for (ii in lks){
   all_params <- c()
   all_o2 <- c()
   target.iter = 60
-  for (ikx in unique(year(obs_long$ActivityStartDate ))){
-    kind <- which(ikx == input.values$year)
-    startdate <- min(kind)
-    enddate <- max(kind)
-    
-    modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = rep(0,5),
-                          upper = rep(10,5), sigma = 0.5,
-                          stopfitness = -Inf,
-                          stopeval = target.iter,
-                          input.values = input.values,
-                          fsed_not_stratified = fsed_not_stratified,
-                          nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified,
-                          wind = wind, proc.obs = obs_weigh, # caL_data
-                          verbose = verbose, startdate = startdate, enddate = enddate)
-    
-    modelopt$xmin <- lb+(ub - lb)/(10)*(modelopt$xmin)
-    
-    calibrated_param <- c(ikx, modelopt$xmin, modelopt$fmin)
-    all_params <- rbind(all_params, calibrated_param)
-    
-    
-    o2<- calc_do(input.values = input.values,fsed_stratified_epi = modelopt$xmin[1],
-                 fsed_stratified_hypo = modelopt$xmin[2],
-                 fsed_not_stratified,
-                 nep_stratified = modelopt$xmin[3],
-                 nep_not_stratified,
-                 min_stratified = modelopt$xmin[4],
-                 min_not_stratified, wind,
-                 startdate = startdate, enddate = enddate)
-    
-    input.values$o2_epil[startdate:enddate] <- o2[startdate:enddate,"o2_epil"]
-    input.values$o2_hypo[startdate:enddate] <- o2[startdate:enddate,"o2_hypo"]
-    input.values$o2_total[startdate:enddate] <- o2[startdate:enddate,"o2_total"]
-    input.values$sat_o2_epil[startdate:enddate] <- o2[startdate:enddate,"sat_o2_epil"]
-    input.values$sat_o2_hypo[startdate:enddate] <- o2[startdate:enddate,"sat_o2_hypo"]
-    input.values$sat_o2_total[startdate:enddate] <- o2[startdate:enddate,"sat_o2_total"]
-    input.values$Fsed_total[startdate:enddate] <- o2[startdate:enddate,"Fsed_total"]
-    input.values$NEP_total[startdate:enddate] <- o2[startdate:enddate,"NEP_total"]
-    input.values$Fatm_total[startdate:enddate] <- o2[startdate:enddate,"Fatm_total"]
-    input.values$Mineral_total[startdate:enddate] <- o2[startdate:enddate,"Mineral_total"]
-    input.values$Fsed_epi[startdate:enddate] <- o2[startdate:enddate,"Fsed_epi"]
-    input.values$NEP_epi[startdate:enddate] <- o2[startdate:enddate,"NEP_epi"]
-    input.values$Fatm_epi[startdate:enddate] <- o2[startdate:enddate,"Fatm_epi"]
-    input.values$Entrain_epi[startdate:enddate] <- o2[startdate:enddate,"Entrain_epi"]
-    input.values$Fsed_hypo[startdate:enddate] <- o2[startdate:enddate,"Fsed_hypo"]
-    input.values$Mineral_hypo[startdate:enddate] <- o2[startdate:enddate,"Mineral_hypo"]
-    input.values$Entrain_hypo[startdate:enddate] <- o2[startdate:enddate,"Entrain_hypo"]
-    
-    all_o2 <- rbind(all_o2, o2[startdate:enddate,])
-  }
   
-  m.all_params <- as.data.frame(all_params)
-  colnames(m.all_params) <- c('year', 'Fsed_epi', 'Fsed_hypo', 'NEP', 'Mineral',
-                            'khalf', 'RMSE')
-  i1 <- ggplot(m.all_params, aes(year, RMSE)) +
-    geom_line() + geom_hline(yintercept=2.12)
-  i2 <- ggplot(m.all_params, aes(year, Fsed_epi)) +
-    geom_line() + geom_hline(yintercept=4536.41)
-  i3 <- ggplot(m.all_params, aes(year, Fsed_hypo)) +
-    geom_line() + geom_hline(yintercept=154.85)
-  i4 <- ggplot(m.all_params, aes(year, NEP)) +
-    geom_line() + geom_hline(yintercept=10)
-  i5 <- ggplot(m.all_params, aes(year, Mineral)) +
-    geom_line() + geom_hline(yintercept=-1000)
-  i6 <- ggplot(m.all_params, aes(year, khalf)) +
-    geom_line() + geom_hline(yintercept=6591.92)
-  
-  p <- i1 + i2 + i3 + i4 + i5 + i6 & theme_minimal()
-  p 
-  ggsave(file = paste0(ii,'/comparison_indyearcal.png'), p, dpi=300,width=316,height=190,units='mm')
-  
+  # for loop for single-year cal
+  # for (ikx in unique(year(obs_long$ActivityStartDate ))){
+  #   kind <- which(ikx == input.values$year)
+  #   datfm <- input.values$datetime[kind]
+  #   if (sum(!is.na(input.values$td.depth[kind])) < 7 | (ikx %in% year(input.values$datetime[obs_weigh[1,]]) == FALSE) |
+  #       !any(datfm[which(!is.na(input.values$td.depth[kind]))] %in% input.values$datetime[obs_weigh[1,]]) ){
+  #     next
+  #   } 
+  #   startdate <- min(kind)
+  #   enddate <- max(kind)
+  #   
+  #   modelopt <- pureCMAES(par = init.val, fun = optim_do, lower = rep(0,5),
+  #                         upper = rep(10,5), sigma = 0.5,
+  #                         stopfitness = -Inf,
+  #                         stopeval = target.iter,
+  #                         input.values = input.values,
+  #                         fsed_not_stratified = fsed_not_stratified,
+  #                         nep_not_stratified = nep_not_stratified, min_not_stratified = min_not_stratified,
+  #                         wind = wind, proc.obs = obs_weigh, # caL_data
+  #                         verbose = verbose, startdate = startdate, enddate = enddate)
+  #   
+  #   modelopt$xmin <- lb+(ub - lb)/(10)*(modelopt$xmin)
+  #   
+  #   calibrated_param <- c(ikx, modelopt$xmin, modelopt$fmin)
+  #   all_params <- rbind(all_params, calibrated_param)
+  #   
+  #   
+  #   o2<- calc_do(input.values = input.values,fsed_stratified_epi = modelopt$xmin[1],
+  #                fsed_stratified_hypo = modelopt$xmin[2],
+  #                fsed_not_stratified,
+  #                nep_stratified = modelopt$xmin[3],
+  #                nep_not_stratified,
+  #                min_stratified = modelopt$xmin[4],
+  #                min_not_stratified, wind,
+  #                startdate = startdate, enddate = enddate)
+  #   
+  #   input.values$o2_epil[startdate:enddate] <- o2[startdate:enddate,"o2_epil"]
+  #   input.values$o2_hypo[startdate:enddate] <- o2[startdate:enddate,"o2_hypo"]
+  #   input.values$o2_total[startdate:enddate] <- o2[startdate:enddate,"o2_total"]
+  #   input.values$sat_o2_epil[startdate:enddate] <- o2[startdate:enddate,"sat_o2_epil"]
+  #   input.values$sat_o2_hypo[startdate:enddate] <- o2[startdate:enddate,"sat_o2_hypo"]
+  #   input.values$sat_o2_total[startdate:enddate] <- o2[startdate:enddate,"sat_o2_total"]
+  #   input.values$Fsed_total[startdate:enddate] <- o2[startdate:enddate,"Fsed_total"]
+  #   input.values$NEP_total[startdate:enddate] <- o2[startdate:enddate,"NEP_total"]
+  #   input.values$Fatm_total[startdate:enddate] <- o2[startdate:enddate,"Fatm_total"]
+  #   input.values$Mineral_total[startdate:enddate] <- o2[startdate:enddate,"Mineral_total"]
+  #   input.values$Fsed_epi[startdate:enddate] <- o2[startdate:enddate,"Fsed_epi"]
+  #   input.values$NEP_epi[startdate:enddate] <- o2[startdate:enddate,"NEP_epi"]
+  #   input.values$Fatm_epi[startdate:enddate] <- o2[startdate:enddate,"Fatm_epi"]
+  #   input.values$Entrain_epi[startdate:enddate] <- o2[startdate:enddate,"Entrain_epi"]
+  #   input.values$Fsed_hypo[startdate:enddate] <- o2[startdate:enddate,"Fsed_hypo"]
+  #   input.values$Mineral_hypo[startdate:enddate] <- o2[startdate:enddate,"Mineral_hypo"]
+  #   input.values$Entrain_hypo[startdate:enddate] <- o2[startdate:enddate,"Entrain_hypo"]
+  #   
+  #   all_o2 <- rbind(all_o2, o2[startdate:enddate,])
+  # }
+  # 
+  # m.all_params <- as.data.frame(all_params)
+  # colnames(m.all_params) <- c('year', 'Fsed_epi', 'Fsed_hypo', 'NEP', 'Mineral',
+  #                           'khalf', 'RMSE')
+  # i1 <- ggplot(m.all_params, aes(year, RMSE)) +
+  #   geom_line() + geom_hline(yintercept=2.12)
+  # i2 <- ggplot(m.all_params, aes(year, Fsed_epi)) +
+  #   geom_line() + geom_hline(yintercept=4536.41)
+  # i3 <- ggplot(m.all_params, aes(year, Fsed_hypo)) +
+  #   geom_line() + geom_hline(yintercept=154.85)
+  # i4 <- ggplot(m.all_params, aes(year, NEP)) +
+  #   geom_line() + geom_hline(yintercept=10)
+  # i5 <- ggplot(m.all_params, aes(year, Mineral)) +
+  #   geom_line() + geom_hline(yintercept=-1000)
+  # i6 <- ggplot(m.all_params, aes(year, khalf)) +
+  #   geom_line() + geom_hline(yintercept=6591.92)
+  # 
+  # p <- i1 + i2 + i3 + i4 + i5 + i6 & theme_minimal()
+  # p 
+  # ggsave(file = paste0(ii,'/comparison_indyearcal.png'), p, dpi=300,width=316,height=190,units='mm')
+  # 
   
   # input.values$o2_epil <- o2[,"o2_epil"]
   # input.values$o2_hypo <- o2[,"o2_hypo"]
@@ -366,31 +426,39 @@ for (ii in lks){
                 row.names = FALSE)
   print('Nothing got broken, good job!')
 }
-
 library(viridis)
 library(patchwork)
 eval.df <- read.table('eval.csv', header = TRUE)
 
-g1<- ggplot(eval.df, aes(Asurf, RMSE_cal, col = MaxZ, label = ID)) + 
+g1<- ggplot(subset(eval.df,gen==2), aes(Asurf, RMSE_total, col = (MaxZ), label = ID)) + 
   geom_point(aes(size = nobs)) +   
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') + 
-  ggtitle("calibration") +
+  ggtitle("total") +
   ylim(0,6)+
   geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) + 
   theme_bw();g1
-g2<- ggplot(eval.df, aes(Asurf, RMSE_val, col = MaxZ, label = ID)) + 
-  geom_point(aes(size = nobs)) +   
+g2<- ggplot(subset(eval.df,gen==2), aes(Asurf, RMSE_cal, col = MaxZ, label = ID)) +
+  geom_point(aes(size = nobs)) +
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') +
   ggtitle("validation") +
   ylim(0,6)+
-  geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) + 
+  geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) +
   theme_bw();g2
-g <- g1 + g2 + plot_annotation(tag_levels = 'A',
-  caption = paste0('ODEM ',Sys.time()) 
-)
+g3<- ggplot(subset(eval.df,gen==2), aes(Asurf, RMSE_val, col = MaxZ, label = ID)) +
+  geom_point(aes(size = nobs)) +
+  scale_color_viridis(option="viridis") +
+  xlab('Surface Area') +
+  ylab('RMSE in mg DO/L') +
+  ggtitle("validation") +
+  ylim(0,6)+
+  geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) +
+  theme_bw();g3
+g <- g1 + g2 + g3 + plot_annotation(tag_levels = 'A',
+  caption = paste0('ODEM ',Sys.time())
+);g
 ggsave(file = paste0('lake_results.png'), g, dpi=300, width=316,height=190,units='mm')
 
