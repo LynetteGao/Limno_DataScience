@@ -340,7 +340,7 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
       
       if (valid((NEP_epil+Fatm_epil + Fepi + Fsed_epi), o2_data[day-1,"o2_epil"]) != (NEP_epil+Fatm_epil + Fepi + Fsed_epi)){
         Fsed_epi <- Fsed_epi/(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
-        NEP_epil <- NEP_epil(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
+        NEP_epil <- NEP_epil/(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
         Fatm_epil <- Fatm_epil/(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
         Fepi <- Fepi/(NEP_epil+Fatm_epil + Fepi + Fsed_epi) * o2_data[day-1,"o2_epil"]
       }

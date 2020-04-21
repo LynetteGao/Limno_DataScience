@@ -95,14 +95,14 @@ for (ii in lks){
   obs_weigh <- w.obs[[2]]
   
 
-  # nep_stratified = 100 # mg/m3/d
-  # min_stratified = -50 #-200 # mg/m3/d
-  # min_not_stratified  =  0 # mg/m2/d 
-  # fsed_stratified_epi = -1500 # mg/m3/d 
-  # nep_not_stratified = 0 # mg/m3/d
-  # fsed_stratified_hypo = -4500 # mg/m3/d 
-  # fsed_not_stratified = 0 # mg/m3/d
-  # khalf <- 3000 # mg/m3
+  nep_stratified = 100 # mg/m3/d
+  min_stratified = -50 #-200 # mg/m3/d
+  min_not_stratified  =  0 # mg/m2/d
+  fsed_stratified_epi = -1500 # mg/m3/d
+  nep_not_stratified = 0 # mg/m3/d
+  fsed_stratified_hypo = -4500 # mg/m3/d
+  fsed_not_stratified = 0 # mg/m3/d
+  khalf <- 3000 # mg/m3
   # 
   # startdate = 1
   # enddate = nrow(input.values)
@@ -426,39 +426,40 @@ for (ii in lks){
                 row.names = FALSE)
   print('Nothing got broken, good job!')
 }
+
 library(viridis)
 library(patchwork)
 eval.df <- read.table('eval.csv', header = TRUE)
 
-g1<- ggplot(subset(eval.df,gen==2), aes(Asurf, RMSE_total, col = (MaxZ), label = ID)) + 
-  geom_point(aes(size = nobs)) +   
+g1<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_total, col = (Asurf), label = ID)) + 
+  geom_point() +   
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') + 
   ggtitle("total") +
-  ylim(0,6)+
-  geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) + 
+  ylim(0,3)+ xlim(0,35)+
+  geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.09) + 
   theme_bw();g1
-g2<- ggplot(subset(eval.df,gen==2), aes(Asurf, RMSE_cal, col = MaxZ, label = ID)) +
-  geom_point(aes(size = nobs)) +
+g2<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_cal, col = Asurf, label = ID)) +
+  geom_point() +
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') +
-  ggtitle("validation") +
-  ylim(0,6)+
-  geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) +
+  ggtitle("calibration") +
+  ylim(0,3)+ xlim(0,35)+
+  geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.05) +
   theme_bw();g2
-g3<- ggplot(subset(eval.df,gen==2), aes(Asurf, RMSE_val, col = MaxZ, label = ID)) +
-  geom_point(aes(size = nobs)) +
+g3<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_val, col = Asurf, label = ID)) +
+  geom_point() + #aes(size = nobs)
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
   ylab('RMSE in mg DO/L') +
   ggtitle("validation") +
-  ylim(0,6)+
-  geom_text(check_overlap = TRUE,hjust = 0.05, nudge_x = 0.05) +
+  ylim(0,3)+ xlim(0,35)+
+  geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.05) +
   theme_bw();g3
-g <- g1 + g2 + g3 + plot_annotation(tag_levels = 'A',
+g <- g1 / g2 / g3 + plot_annotation(tag_levels = 'A',
   caption = paste0('ODEM ',Sys.time())
 );g
-ggsave(file = paste0('lake_results.png'), g, dpi=300, width=316,height=190,units='mm')
+ggsave(file = paste0('lake_results.png'), g, dpi=300, width=175,height=275,units='mm')
 
