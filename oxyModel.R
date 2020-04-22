@@ -431,7 +431,7 @@ library(viridis)
 library(patchwork)
 eval.df <- read.table('eval.csv', header = TRUE)
 
-g1<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_total, col = (Asurf), label = ID)) + 
+g1<- ggplot(subset(eval.df,gen=='therm'), aes(MaxZ, RMSE_total, col = (Asurf), label = ID)) + 
   geom_point() +   
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
@@ -440,7 +440,7 @@ g1<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_total, col = (Asurf), lab
   ylim(0,3)+ xlim(0,35)+
   geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.09) + 
   theme_bw();g1
-g2<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_cal, col = Asurf, label = ID)) +
+g2<- ggplot(subset(eval.df,gen=='therm'), aes(MaxZ, RMSE_cal, col = Asurf, label = ID)) +
   geom_point() +
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +
@@ -449,7 +449,7 @@ g2<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_cal, col = Asurf, label =
   ylim(0,3)+ xlim(0,35)+
   geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.05) +
   theme_bw();g2
-g3<- ggplot(subset(eval.df,gen=='new'), aes(MaxZ, RMSE_val, col = Asurf, label = ID)) +
+g3<- ggplot(subset(eval.df,gen=='therm'), aes(MaxZ, RMSE_val, col = Asurf, label = ID)) +
   geom_point() + #aes(size = nobs)
   scale_color_viridis(option="viridis") +
   xlab('Surface Area') +

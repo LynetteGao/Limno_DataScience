@@ -51,8 +51,8 @@ calc_td_depth <- function(wtemp){
     dens.diff = rev(dens_data)[1] - dens_data[1]
     
     if (condition[ii] && abs(dens.diff) > 0.05){
-    cbuoy.depth[ii] <- center.buoyancy(temp[ii,], as.numeric(grd.info$depth))
-    td.depth[ii] <- thermo.depth(temp[ii,], as.numeric(grd.info$depth))
+    cbuoy.depth[ii] <- center.buoyancy(temp[ii, idx], as.numeric(grd.info$depth[idx]))
+    td.depth[ii] <- thermo.depth(temp[ii, idx], as.numeric(grd.info$depth[idx]))
     }
   }
   
