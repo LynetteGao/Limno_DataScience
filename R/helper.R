@@ -699,11 +699,11 @@ weigh_obs <- function(obs, input.values, H, A){
       weight_obs[2, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'TOTAL')])
     } else {
       idy = which(data$Layer == 'EPILIMNION')
-      epi_areas <- approx(H, A, seq(from = round(thdepth,1), to = 0, by = -0.5))$y
+      epi_areas <- approx(H, A, seq(from = round(thdepth,1), to = 0, by = -0.1))$y
       epi_perc <- (1 * data$Area[idy]) / max(epi_areas)
       
       idt = which(data$Layer == 'HYPOLIMNION')
-      hypo_areas <- approx(H, A, seq(from = max(H), to = round(thdepth,1), by = -0.5))$y
+      hypo_areas <- approx(H, A, seq(from = max(H), to = round(thdepth,1), by = -0.1))$y
       hypo_perc <- (1 * data$Area[idt]) / max(hypo_areas)
       
       data_long$WeightValue[idx] <- c(data$ResultMeasureValue[idy] * epi_perc,
