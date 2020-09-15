@@ -28,8 +28,148 @@ for (ii in lks){
   
   chidx <- match(as.POSIXct(data$date),as.POSIXct(meteo$time))
   wind <- meteo$WindSpeed[chidx]
+  airtemp <- meteo$AirTemp[chidx]
   
   if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){
+    wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
+    obs <- NULL
+    
+    for(jj in wq_data){
+      raw_obs <- read.csv(jj)
+      if ('ActivityDepthHeighMeasure.MeasureValue' %in% colnames(raw_obs)){
+        wq <- raw_obs %>%
+          dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
+          dplyr::select(c('ActivityStartDate', 'ActivityDepthHeighMeasure.MeasureValue', 'ResultMeasureValue'))
+        wq <- rename(wq, 'ActivityDepthHeightMeasure.MeasureValue' = 'ActivityDepthHeighMeasure.MeasureValue')
+      } else {
+        wq <- raw_obs %>%
+          dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
+          dplyr::select(c('ActivityStartDate', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+      }
+      
+      if (length(wq_data) == 1 | is.null(obs)){
+        obs <- wq
+      } else {
+        obs <- rbind(obs, wq)
+      }
+    }
+    obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
+  }
+  
+  if (is.factor(obs$ActivityDepthHeightMeasure.MeasureValue)){
+    obs$ActivityDepthHeightMeasure.MeasureValue <-  as.numeric(as.character(obs$ActivityDepthHeightMeasure.MeasureValue))
+  }
+  if (is.factor(obs$ResultMeasureValue)){
+    obs$ResultMeasureValue <-  as.numeric(as.character(obs$ResultMeasureValue))
+  }
+  
+  # outlier detection
+  outlier_values <- boxplot.stats(obs$ResultMeasureValue)$out 
+  uvx <- match(outlier_values, obs$ResultMeasureValue)
+  obs$ResultMeasureValue[uvx] <- NA
+  
+  eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
+  H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))
+  A <- eg_nml$morphometry$A
+  
+  input.values <- input(wtemp = data, H = H, A = A)
+  
+  input.values$year <- year(input.values$datetime)
+  input.values$doy <- yday(input.values$datetime)
+  input.values$max.d <- max(H)
+  
+  input.values$wind = wind
+  input.values$airtemp = airtemp
+  write.table(input.values, paste0('input_',sub("\\).*", "", sub(".*\\(", "", ii)) ,'.txt'), append = FALSE, sep = ",", dec = ".",
+              row.names = FALSE, col.names = FALSE)
+  
+  # proc.obs <- preprocess_obs(obs,input.values = input.values, H, A)
+  w.obs <- weigh_obs(obs,input.values = input.values, H, A)
+  obs_long <- w.obs[[1]]
+  obs_weigh <- w.obs[[2]]
+
+  write.table(obs_weigh,paste0('oxy_observed_',sub("\\).*", "", sub(".*\\(", "", ii)) ,'.txt'), append = FALSE, sep = " ", dec = ".",
+              row.names = FALSE, col.names = FALSE)
+  write.table(obs_long,paste0('oxy_observed_long_',sub("\\).*", "", sub(".*\\(", "", ii)) ,'.txt'), append = FALSE, sep = " ", dec = ".",
+              row.names = FALSE, col.names = FALSE)
+  
+  w.obs <- weigh_obs(obs,input.values = input.values, H, A)
+  obs_long <- w.obs[[1]]
+  obs_weigh <- w.obs[[2]]
+  
+  get_wq_data <- function(kword){
+    if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){
+      wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
+      obs <- NULL
+      
+      for(jj in wq_data){
+        raw_obs <- read.csv(jj)
+        if ('ActivityDepthHeighMeasure.MeasureValue' %in% colnames(raw_obs)){
+          wq <- raw_obs %>%
+            dplyr::filter(CharacteristicName== kword) %>%
+            dplyr::select(c('ActivityStartDate', 'ActivityDepthHeighMeasure.MeasureValue', 'ResultMeasureValue'))
+          wq <- rename(wq, 'ActivityDepthHeightMeasure.MeasureValue' = 'ActivityDepthHeighMeasure.MeasureValue')
+        } else {
+          wq <- raw_obs %>%
+            dplyr::filter(CharacteristicName== kword) %>%
+            dplyr::select(c('ActivityStartDate', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+        }
+        
+        if (length(wq_data) == 1 | is.null(obs)){
+          obs <- wq
+        } else {
+          obs <- rbind(obs, wq)
+        }
+      }
+      obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
+    }
+    
+    if (is.factor(obs$ActivityDepthHeightMeasure.MeasureValue)){
+      obs$ActivityDepthHeightMeasure.MeasureValue <-  as.numeric(as.character(obs$ActivityDepthHeightMeasure.MeasureValue))
+    }
+    if (is.factor(obs$ResultMeasureValue)){
+      obs$ResultMeasureValue <-  as.numeric(as.character(obs$ResultMeasureValue))
+    }
+    
+    # outlier detection
+    outlier_values <- boxplot.stats(obs$ResultMeasureValue)$out 
+    uvx <- match(outlier_values, obs$ResultMeasureValue)
+    obs$ResultMeasureValue[uvx] <- NA
+    
+    w.obs <- weigh_obs(obs,input.values = input.values, H, A)
+    obs_long <- w.obs[[1]]
+    obs_weigh <- w.obs[[2]]
+    
+    write.table(obs_weigh,paste0(kword,'_observed_',sub("\\).*", "", sub(".*\\(", "", ii)) ,'.txt'), append = FALSE, sep = " ", dec = ".",
+                row.names = FALSE, col.names = FALSE)
+    write.table(obs_long,paste0(kword,'_observed_long_',sub("\\).*", "", sub(".*\\(", "", ii)) ,'.txt'), append = FALSE, sep = " ", dec = ".",
+                row.names = FALSE, col.names = FALSE)
+    return(NULL)
+  }
+  unique(raw_obs$CharacteristicName)
+  get_wq_data(kword = "Dissolved organic carbon")
+  get_wq_data(kword = "Dissolved inorganic carbon")
+  get_wq_data(kword = "Total organic carbon")
+  get_wq_data(kword = "Total Nitrogen, filtererd")
+  get_wq_data(kword = "Total Phosphorous, filtered")
+  get_wq_data(kword = "Dissolved Reactive Phosphorus, lab")
+  get_wq_data(kword = "Chlorophyll a, free of pheophytin")
+  get_wq_data(kword = "Depth, Secchi disk depth")
+  get_wq_data(kword = "Inorganic nitrogen (nitrate and nitrite) as N, lab")
+  
+
+  print('Got that data, moving on.')
+}
+
+for (ii in lks){
+  print(paste0('Running ',ii))
+  data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'pball', include.dirs = T))) # GLM sim water temp
+  meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T))) # meteo NLDAS
+  
+  chidx <- match(as.POSIXct(data$date),as.POSIXct(meteo$time))
+  wind <- meteo$WindSpeed[chidx]
+  
+  if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){ # wq LTER
   wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
   obs <- NULL
 
@@ -67,17 +207,23 @@ for (ii in lks){
   uvx <- match(outlier_values, obs$ResultMeasureValue)
   obs$ResultMeasureValue[uvx] <- NA
   
-  eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T)))
-  H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H))
-  A <- eg_nml$morphometry$A
+  eg_nml <- read_nml(paste0(ii,'/', list.files(ii, pattern = 'nml', include.dirs = T))) # NML GLM
+  H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H)) # DEPTH
+  A <- eg_nml$morphometry$A # AREA
 
   input.values <- input(wtemp = data, H = H, A = A)
   
   input.values$year <- year(input.values$datetime)
   input.values$doy <- yday(input.values$datetime)
   
+  input.values$wind = wind
+  write.table(input.values, paste0('input.txt'), append = FALSE, sep = ",", dec = ".",
+              row.names = FALSE, col.names = FALSE) # input data --> B-ODEM
+  
   ggplot(input.values)+
     geom_line(aes(doy, td.depth, col='td.depth')) +
+    geom_line(aes(doy,  upper.metalim, col =  'upper.metalim')) +
+    geom_line(aes(doy,  lower.metalim, col =  'lower.metalim')) +
     facet_wrap(~year)
   # ggplot(input.values)+
   #   geom_line(aes(doy, vol_epil, col='t.epil')) +
@@ -94,6 +240,10 @@ for (ii in lks){
   obs_long <- w.obs[[1]]
   obs_weigh <- w.obs[[2]]
   
+  ggplot(obs_long) +
+    geom_freqpoly(aes(ResultMeasureValue , col = Layer),binwidth = 1)
+  write.table(obs_weigh, paste0('observed.txt'), append = FALSE, sep = " ", dec = ".",
+              row.names = FALSE, col.names = FALSE)
 
   nep_stratified = 100 # mg/m3/d
   min_stratified = -50 #-200 # mg/m3/d
@@ -431,28 +581,28 @@ library(viridis)
 library(patchwork)
 eval.df <- read.table('eval.csv', header = TRUE)
 
-g1<- ggplot(subset(eval.df,gen=='therm'), aes(MaxZ, RMSE_total, col = (Asurf), label = ID)) + 
+g1<- ggplot(subset(eval.df,gen=='threequarter'), aes(MaxZ, RMSE_total, col = (Asurf), label = ID)) + 
   geom_point() +   
   scale_color_viridis(option="viridis") +
-  xlab('Surface Area') +
+  xlab('Depth') +
   ylab('RMSE in mg DO/L') + 
   ggtitle("total") +
   ylim(0,3)+ xlim(0,35)+
   geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.09) + 
   theme_bw();g1
-g2<- ggplot(subset(eval.df,gen=='therm'), aes(MaxZ, RMSE_cal, col = Asurf, label = ID)) +
+g2<- ggplot(subset(eval.df,gen=='threequarter'), aes(MaxZ, RMSE_cal, col = Asurf, label = ID)) +
   geom_point() +
   scale_color_viridis(option="viridis") +
-  xlab('Surface Area') +
+  xlab('Depth') +
   ylab('RMSE in mg DO/L') +
   ggtitle("calibration") +
   ylim(0,3)+ xlim(0,35)+
   geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.05) +
   theme_bw();g2
-g3<- ggplot(subset(eval.df,gen=='therm'), aes(MaxZ, RMSE_val, col = Asurf, label = ID)) +
+g3<- ggplot(subset(eval.df,gen=='threequarter'), aes(MaxZ, RMSE_val, col = Asurf, label = ID)) +
   geom_point() + #aes(size = nobs)
   scale_color_viridis(option="viridis") +
-  xlab('Surface Area') +
+  xlab('Depth') +
   ylab('RMSE in mg DO/L') +
   ggtitle("validation") +
   ylim(0,3)+ xlim(0,35)+
@@ -462,4 +612,24 @@ g <- g1 / g2 / g3 + plot_annotation(tag_levels = 'A',
   caption = paste0('ODEM ',Sys.time())
 );g
 ggsave(file = paste0('lake_results.png'), g, dpi=300, width=175,height=275,units='mm')
+
+h<- g1 + g2 + g3 + plot_annotation(tag_levels = 'A',
+                                    caption = paste0('ODEM ',Sys.time())
+);h
+ggsave(file = paste0('lake_results_talk.png'), h, dpi=300, width=400,height=150,units='mm')
+
+g4<- ggplot(subset(eval.df,gen=='RNN'), aes(MaxZ, RMSE_cal, col = Asurf, label = ID)) +
+  geom_point() +
+  scale_color_viridis(option="viridis") +
+  xlab('Depth') +
+  ylab('RMSE in mg DO/L') +
+  ggtitle("RNN calibration") +
+  ylim(0,3)+ xlim(0,35)+
+  geom_text(check_overlap = FALSE,hjust = 1.1, nudge_x = 0.05) +
+  theme_bw();g4
+
+h2 <- g2 + g4 + plot_annotation(tag_levels = 'A',
+                                caption = paste0('ODEM ',Sys.time())
+);h2
+ggsave(file = paste0('lake_results_RNN.png'), h2, dpi=300, width=400,height=150,units='mm')
 
