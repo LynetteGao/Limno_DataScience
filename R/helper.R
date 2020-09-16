@@ -108,6 +108,41 @@ calc_td_depth <- function(wtemp){
   return(test$depth)#return(cbuoy.depth)#return(test$depth)
 }
 
+#'
+#' Calculate planar thermocline depth by checking the highest density gradient over depth.
+#'
+#' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
+#' @return vector of thermocline depths in m
+#' @export
+#' 
+calc_metalimdepth <- function(wtemp){
+  
+  grd.info <- extract_time_space(wtemp)
+  temp <- as.matrix(wtemp[,-c(1)])
+  dens <- calc_dens(temp)
+  
+  cbuoy.depth <- rep(NA, length(grd.info$datetime))
+  metalimn.depth <- matrix(c(NA,NA), ncol=length(grd.info$datetime), nrow=2)#rep(NA, length(grd.info$datetime))
+  
+  condition<- apply(temp, 1, FUN=min,na.rm=TRUE) > 4
+  
+  for (ii in 1:length(cbuoy.depth)){
+    idx = !is.na(temp[ii,])
+    dens_data = dens[ii,idx]
+    dens.diff = rev(dens_data)[1] - dens_data[1]
+    
+    if (condition[ii] && abs(dens.diff) > 0.05){
+      cbuoy.depth[ii] <- center.buoyancy(temp[ii, idx], as.numeric(grd.info$depth[idx]))
+      metalimn.depth[,ii] <- meta.depths(temp[ii, idx], as.numeric(grd.info$depth[idx]),
+                                        slope = 0.1, seasonal = TRUE, mixed.cutoff = 1)
+    }
+  }
+  
+
+  # 
+  
+  return(metalimn.depth)#return(cbuoy.depth)#return(test$depth)
+}
 
 #'
 #' Calculate mean epilimnion and hypolimnion surface temperature,using the thermocline depth
@@ -135,7 +170,8 @@ calc_epil_hypo_temp<-function(wtemp,td.depth,H){
   for (ii in (1:length(td.depth))){
     idx = !is.na(temp[ii,])
     temp_data = as.numeric(temp[ii,idx])
-    total_temp[ii]<-max(sum(temp_data)/length(temp_data),4)
+    #total_temp[ii]<-max(sum(temp_data)/length(temp_data),4)
+    total_temp[ii]<-sum(temp_data)/length(temp_data)
     if(!td_not_exist[ii]){
       td_idx <- max(which(td.depth[ii]>=depth_data))
       epil_temp[ii] <- mean(temp_data[1:td_idx])
@@ -213,14 +249,17 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
 input <- function(wtemp, H, A){
   grd.info <- extract_time_space(wtemp)
   td.depth <- calc_td_depth(wtemp)
+  metalimn.depth <- calc_metalimdepth(wtemp)
   td_area <- approx(H, A, td.depth)$y
   surf_area <- rep(max(A), length(grd.info$datetime))
-  temp_out<-calc_epil_hypo_temp(wtemp,td.depth,H)
-  vol_total<- calc_vol_total(H,A)
+  temp_out<-calc_epil_hypo_temp(wtemp,td.depth,H) # epi T hypo T
+  vol_total<- calc_vol_total(H,A) # epi V hypo V
   vol<-calc_epil_hypo_vol(H,A,td.depth,vol_total)
   return(data.frame(datetime = as.POSIXct(grd.info$datetime),td.depth,t.epil = temp_out$t_epil,t.hypo=temp_out$t_hypo,
                           t.total = temp_out$t_total,vol_total,vol,
-                    td_area, surf_area))
+                    td_area, surf_area,
+                    upper.metalim = metalimn.depth[1,],
+                    lower.metalim = metalimn.depth[2,]))
 }
 
 
@@ -274,8 +313,8 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
       
       MINER <- (min_not_stratified * theta_total*(o2_data[day-1,"o2_total"])/(khalf + o2_data[day-1,"o2_total"]))
       
-      kO2 <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.total[day],gas='O2') # velocity value m/d?
-      o2sat<-o2.at.sat.base(temp=input.values$t.total[day],altitude = 300)*1000 # mg O2/L -> mg/m3
+      kO2 <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.total[day-1],gas='O2') # velocity value m/d?
+      o2sat<-o2.at.sat.base(temp=input.values$t.total[day-1],altitude = 300)*1000 # mg O2/L -> mg/m3
 
       Fatm <- (kO2*(o2sat - o2_data[day-1,"o2_total"])/max(H))
       
@@ -299,12 +338,12 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
     }
     # the day it turns to stratified, need to reassign the o2 to hypo and epil
     else if(is.na(input.values$td.depth[day-1])){
-      o2_data[day,"o2_epil"] <- (o2_data[day-1,"o2_total"]*input.values$vol_epil[day])/input.values$vol_total[day]
-      o2_data[day,"o2_hypo"] <- (o2_data[day-1,"o2_total"]*input.values$vol_hypo[day])/input.values$vol_total[day]
-      o2_data[day,"o2_total"] <- (o2_data[day,"o2_hypo"]* input.values$vol_hypo[day] + o2_data[day,"o2_epil"] * input.values$vol_epil[day])/input.values$vol_total[day]
-      # o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_total"]#((o2_data[day-1,"o2_total"]*input.values$vol_epil[day])/input.values$vol_total[day]) #/ input.values$vol_epil[day] #/input.values$t.total[day]*input.values$vol_epil[day]
-      # o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_total"]#((o2_data[day-1,"o2_total"]*input.values$vol_hypo[day])/input.values$vol_total[day])  #/ input.values$vol_hypo[day] #/input.values$t.total[day]*input.values$vol_hypo[day]
-      # o2_data[day,"o2_total"]<- (o2_data[day,"o2_epil"]+o2_data[day,"o2_hypo"]) /2 #/ input.values$vol_total[day] 
+      # o2_data[day,"o2_epil"] <- (o2_data[day-1,"o2_total"]*input.values$vol_epil[day])/input.values$vol_total[day]
+      # o2_data[day,"o2_hypo"] <- (o2_data[day-1,"o2_total"]*input.values$vol_hypo[day])/input.values$vol_total[day]
+      # o2_data[day,"o2_total"] <- (o2_data[day,"o2_hypo"]* input.values$vol_hypo[day] + o2_data[day,"o2_epil"] * input.values$vol_epil[day])/input.values$vol_total[day]
+      o2_data[day,"o2_epil"] <- o2_data[day-1,"o2_total"]#((o2_data[day-1,"o2_total"]*input.values$vol_epil[day])/input.values$vol_total[day]) #/ input.values$vol_epil[day] #/input.values$t.total[day]*input.values$vol_epil[day]
+      o2_data[day,"o2_hypo"] <- o2_data[day-1,"o2_total"]#((o2_data[day-1,"o2_total"]*input.values$vol_hypo[day])/input.values$vol_total[day])  #/ input.values$vol_hypo[day] #/input.values$t.total[day]*input.values$vol_hypo[day]
+      o2_data[day,"o2_total"]<- (o2_data[day,"o2_epil"]+o2_data[day,"o2_hypo"]) /2 #/ input.values$vol_total[day]
       
       o2sat<-o2.at.sat.base(temp=input.values$t.epil[day],altitude = 300)*1000 
       o2_data[day,"sat_o2_epil"] <- (100. * o2_data[day,"o2_epil"])/ o2sat
@@ -318,8 +357,8 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
       
       NEP_epil <- (nep_stratified * theta_epil *(o2_data[day-1,"o2_epil"])/(khalf + o2_data[day-1,"o2_epil"]))
               
-      kO2_epil <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.epil[day],gas='O2')
-      o2sat_epil<-o2.at.sat.base(temp=input.values$t.epil[day],altitude = 300)*1000
+      kO2_epil <- k600.2.kGAS.base(k600=K600,temperature=input.values$t.epil[day-1],gas='O2')
+      o2sat_epil<-o2.at.sat.base(temp=input.values$t.epil[day-1],altitude = 300)*1000
 
       Fatm_epil <- (kO2_epil*(o2sat_epil-o2_data[day-1,"o2_epil"] )/input.values$td.depth[day-1])
      
@@ -689,34 +728,43 @@ weigh_obs <- function(obs, input.values, H, A){
     
     if (all(data$Layer == 'TOTAL')){
       total_areas <- approx(H, A, seq(from = max(H), to = 0, by = -0.5))$y
-      perc <- (1 * data$Area) / max(total_areas)
+      perc <- (1 * data$Area) / sum(data$Area, na.rm = TRUE)#max(total_areas)
       data_long$WeightValue[idx] <- data$ResultMeasureValue * perc
       data$WeightValue<- data$ResultMeasureValue * perc
       
       # print(paste(
       #   mean(data$WeightValue[which(data$Layer == 'TOTAL')])))
       
-      weight_obs[2, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'TOTAL')])
+      weight_obs[2, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- sum(data$WeightValue[which(data$Layer == 'TOTAL')], na.rm = TRUE)
     } else {
       idy = which(data$Layer == 'EPILIMNION')
-      epi_areas <- approx(H, A, seq(from = round(thdepth,1), to = 0, by = -0.5))$y
-      epi_perc <- (1 * data$Area[idy]) / max(epi_areas)
+      idy <- idy[1: floor(length(idy)*0.75)]
+      epi_areas <- approx(H, A, seq(from = round(thdepth,1), to = 0, by = -0.1))$y
+      epi_perc <- (1 * data$Area[idy]) / sum(data$Area[idy], na.rm = TRUE)#max(epi_areas)
       
       idt = which(data$Layer == 'HYPOLIMNION')
-      hypo_areas <- approx(H, A, seq(from = max(H), to = round(thdepth,1), by = -0.5))$y
-      hypo_perc <- (1 * data$Area[idt]) / max(hypo_areas)
+      idt <- idt[length(idt): (length(idt)-floor(length(idt)*0.75))]
+      idt <- rev(idt)
+      hypo_areas <- approx(H, A, seq(from = max(H), to = round(thdepth,1), by = -0.1))$y
+      hypo_perc <- (1 * data$Area[idt]) / sum(data$Area[idt], na.rm = TRUE)#max(hypo_areas)
       
-      data_long$WeightValue[idx] <- c(data$ResultMeasureValue[idy] * epi_perc,
-                                      data$ResultMeasureValue[idt] * hypo_perc)
-      data$WeightValue <- c(data$ResultMeasureValue[idy] * epi_perc,
-                            data$ResultMeasureValue[idt] * hypo_perc)
-      
+      data_long$WeightValue[idx] <- rep(NA, length(idx))
+      data_long$WeightValue[idx[idy]] <- data$ResultMeasureValue[idy] * epi_perc
+      data_long$WeightValue[idx[idt]] <-   data$ResultMeasureValue[idt] * hypo_perc
+      # data$WeightValue <- c(data$ResultMeasureValue[idy] * epi_perc,
+      #                       data$ResultMeasureValue[idt] * hypo_perc)
+      data$WeightValue<- rep(NA, length(idx))
+      data$WeightValue[idy] <- data$ResultMeasureValue[idy] * epi_perc
+      data$WeightValue[idt] <-   data$ResultMeasureValue[idt] * hypo_perc
+      # 
       # print(paste(
       #   mean(data$WeightValue[which(data$Layer == 'EPILIMNION')]),
       #   mean(data$WeightValue[which(data$Layer == 'HYPOLIMNION')])
       # ))
-      weight_obs[3, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'EPILIMNION')])
-      weight_obs[4, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- mean(data$WeightValue[which(data$Layer == 'HYPOLIMNION')])
+      # trapz(x = data$ActivityDepthHeightMeasure.MeasureValue[which(data$Layer == 'EPILIMNION')], y = data$WeightValue[which(data$Layer == 'EPILIMNION')])
+      # trapz(x = data$ActivityDepthHeightMeasure.MeasureValue[which(data$Layer == 'HYPOLIMNION')], y = data$WeightValue[which(data$Layer == 'HYPOLIMNION')])
+      weight_obs[3, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- sum(data$WeightValue[which(data$Layer == 'EPILIMNION')], na.rm = TRUE)
+      weight_obs[4, match(ii, unique(zoo::as.Date(data_long$ActivityStartDate)))] <- sum(data$WeightValue[which(data$Layer == 'HYPOLIMNION')], na.rm = TRUE)
       
     }
   }
