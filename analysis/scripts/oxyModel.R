@@ -1,6 +1,3 @@
-rm(list = ls())
-
-setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
 ## packages
 library(devtools)

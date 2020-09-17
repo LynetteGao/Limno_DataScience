@@ -14,8 +14,6 @@ library(zoo)
 library(signal)
 library(Hmisc)
 
-
-setwd('/Users/robertladwig/Documents/DSI/Limno_DataScience')
 lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
 a=1
 for (ii in lks){
