@@ -1,2 +1,8 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+lakes_location.png
+oxyModel.R
+get_wq.R
+eval.csv
+calval.csv
+analysis
