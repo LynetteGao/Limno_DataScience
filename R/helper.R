@@ -32,6 +32,7 @@ extract_time_space <- function(wtemp){
 #'
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
 #' @return vector of thermocline depths in m
+#' @importFrom stats na.omit
 #' @export
 #' 
 calc_td_depth <- function(wtemp){
@@ -448,6 +449,7 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
 #' @param obs matrix; observational data
 #' @param input.values data frame, simulaedt data
 #' @return matched data frame of observed and simulated data
+#' @importFrom dplyr filter
 #' @export
 #' 
 compare_predict_versus_observed<-function(obs,input.values){
@@ -611,6 +613,7 @@ valid<-function(flux,pool){
 #' @param H depths
 #' @param A areas
 #' @return matched and weighted-averaged data
+#' @importFrom stats sd weighted.mean approx
 #' @export
 #' 
 preprocess_obs <- function(obs, input.values, H, A){
