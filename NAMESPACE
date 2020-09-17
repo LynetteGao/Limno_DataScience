@@ -3,6 +3,7 @@
 export(calc_dens)
 export(calc_do)
 export(calc_fit)
+export(calc_metalimdepth)
 export(calc_rmse)
 export(calc_rmse_epil)
 export(calc_rmse_hypo)
