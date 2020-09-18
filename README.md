@@ -4,6 +4,12 @@ This R-package is still under development and functions are likely to change wit
 
 This project is part of the Data Science Initiative at UW-Madison.
 
+## Installation
+
+```r
+remotes::install_github("LynetteGao/Limno_DataScience")
+```
+
 ## Data
 
 ### Input data
@@ -12,7 +18,7 @@ This project is part of the Data Science Initiative at UW-Madison.
   
  * meteorology: `NLDAS_*.csv`
  
- * water quality: `wq_data_*.csv`
+ * water quality data from LTER: `wq_data_*.csv`
 
 ### Output data for odem
 
