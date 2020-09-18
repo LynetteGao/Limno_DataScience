@@ -449,7 +449,7 @@ calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not
 #' @param obs matrix; observational data
 #' @param input.values data frame, simulaedt data
 #' @return matched data frame of observed and simulated data
-#' @importFrom dplyr filter
+#' @importFrom dplyr filter slice
 #' @export
 #' 
 compare_predict_versus_observed<-function(obs,input.values){
@@ -552,7 +552,7 @@ calc_fit <- function(input.values, proc.obs){
 }
 
 #' Calculates RMSE for total lake
-#' @param test_data matrix; Matched observed to simulated data
+#' @inheritParams calc_do
 #' @return double value of RMSE
 #' @export
 #' 
@@ -609,7 +609,7 @@ valid<-function(flux,pool){
 
 #' preprocesses observed data and area-weighs them
 #' @param obs observed data
-#' @param pool input matrix of for instance thermocline depth
+#' @param input.values input matrix of for instance thermocline depth
 #' @param H depths
 #' @param A areas
 #' @return matched and weighted-averaged data
@@ -703,6 +703,7 @@ preprocess_obs <- function(obs, input.values, H, A){
 #' @param H depths
 #' @param A areas
 #' @return matched and weighted-averaged data
+#' @importFrom dplyr arrange
 #' @export
 #' 
 weigh_obs <- function(obs, input.values, H, A){
