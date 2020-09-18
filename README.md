@@ -10,6 +10,22 @@ This project is part of the Data Science Initiative at UW-Madison.
 remotes::install_github("LynetteGao/Limno_DataScience")
 ```
 
+## Usage
+
+```R
+# build odem input data for a specific lake using R
+ii <- "analysis/data/143249470_(Mendota)/"
+source("analysis/scripts/01_data_merge.R")
+```
+
+```bash
+# build odem input data for a specific lake using the command line
+make analysis/data/143249470_(Mendota)/input.txt
+
+# build odem input data for all lakes using the command line
+make all
+```
+
 ## Data
 
 ### Input data
@@ -19,6 +35,8 @@ remotes::install_github("LynetteGao/Limno_DataScience")
  * meteorology: `NLDAS_*.csv`
  
  * water quality data from LTER: `wq_data_*.csv`
+ 
+ * nml file 
 
 ### Output data for odem
 
