@@ -14,23 +14,25 @@ Author: Authors@R: c( person("Lynette", "Gao", role = c("aut","cre"),
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: Runs dynamic two-layer oxygen model for physics-guided machine learning.
 Imports: 
-    rlist,
-    gganimate, 
-    viridis, 
     glmtools, 
     dplyr,
-    ggplot2,
-    lubridate,
-    pracma,
-    readr,
+    rLakeAnalyzer,
     LakeMetabolizer,
+    pracma,
+    lubridate,
+    zoo
+Suggests:
+    ggplot2,
+    readr,
     adagio,
-    zoo,
     GenSA,
     RPostgreSQL,
     odbc,
     berryFunctions,
-    signal
+    signal,
+    Hmisc,
+    broom,
+    patchwork
 License: CCO
 Encoding: UTF-8
 LazyData: true

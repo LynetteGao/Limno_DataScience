@@ -33,6 +33,8 @@ extract_time_space <- function(wtemp){
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
 #' @return vector of thermocline depths in m
 #' @importFrom stats na.omit
+#' @importFrom rLakeAnalyzer thermo.depth center.buoyancy
+#' @importFrom zoo na.approx
 #' @export
 #' 
 calc_td_depth <- function(wtemp){
@@ -114,6 +116,7 @@ calc_td_depth <- function(wtemp){
 #'
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
 #' @return vector of thermocline depths in m
+#' @importFrom rLakeAnalyzer meta.depths
 #' @export
 #' 
 calc_metalimdepth <- function(wtemp){
@@ -248,27 +251,32 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
 #' @return vector of thermocline depths in m
 #' @export
 input <- function(wtemp, H, A){
-  grd.info <- extract_time_space(wtemp)
-  td.depth <- calc_td_depth(wtemp)
+  grd.info       <- extract_time_space(wtemp)
+  td.depth       <- calc_td_depth(wtemp)
   metalimn.depth <- calc_metalimdepth(wtemp)
-  td_area <- approx(H, A, td.depth)$y
-  surf_area <- rep(max(A), length(grd.info$datetime))
-  temp_out<-calc_epil_hypo_temp(wtemp,td.depth,H) # epi T hypo T
-  vol_total<- calc_vol_total(H,A) # epi V hypo V
-  vol<-calc_epil_hypo_vol(H,A,td.depth,vol_total)
-  return(data.frame(datetime = as.POSIXct(grd.info$datetime),td.depth,t.epil = temp_out$t_epil,t.hypo=temp_out$t_hypo,
-                          t.total = temp_out$t_total,vol_total,vol,
-                    td_area, surf_area,
-                    upper.metalim = metalimn.depth[1,],
-                    lower.metalim = metalimn.depth[2,]))
+  td_area        <- approx(H, A, td.depth)$y
+  surf_area      <- rep(max(A), length(grd.info$datetime))
+  temp_out       <- calc_epil_hypo_temp(wtemp, td.depth, H) # epi T hypo T
+  vol_total      <- calc_vol_total(H, A) # epi V hypo V
+  vol            <- calc_epil_hypo_vol(H, A, td.depth, vol_total)
+  
+  return(data.frame(
+    datetime = as.POSIXct(grd.info$datetime), 
+    td.depth, 
+    t.epil   = temp_out$t_epil, 
+    t.hypo   = temp_out$t_hypo,
+    t.total  = temp_out$t_total, 
+    vol_total, vol,
+    td_area, surf_area,
+    upper.metalim = metalimn.depth[1,], lower.metalim = metalimn.depth[2,]
+    ))
 }
-
-
 
 #' Calculate the mass of dissolved oxgen in epil and hypolimnion(during stratified period)
 #' and the total dissovled oxygen in the lake
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
 #' @return list of datetimes and depths
+#' @importFrom LakeMetabolizer k.cole.base o2.at.sat.base k600.2.kGAS.base
 #' @export
 #' 
 calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not_stratified,nep_stratified,nep_not_stratified,
@@ -554,6 +562,7 @@ calc_fit <- function(input.values, proc.obs){
 #' Calculates RMSE for total lake
 #' @inheritParams calc_do
 #' @return double value of RMSE
+#' @importFrom lubridate yday year
 #' @export
 #' 
 optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, min_not_stratified = 0.0,
@@ -703,7 +712,7 @@ preprocess_obs <- function(obs, input.values, H, A){
 #' @param H depths
 #' @param A areas
 #' @return matched and weighted-averaged data
-#' @importFrom dplyr arrange
+#' @importFrom dplyr arrange `%>%`
 #' @export
 #' 
 weigh_obs <- function(obs, input.values, H, A){
