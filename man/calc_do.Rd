@@ -21,7 +21,29 @@ calc_do(
 )
 }
 \arguments{
-\item{wtemp}{matrix; Water temperatures (rows correspond to time, cols to depth)}
+\item{input.values}{output of the input function}
+
+\item{fsed_stratified_epi}{mg/m3/d}
+
+\item{fsed_stratified_hypo}{mg/m3/d}
+
+\item{fsed_not_stratified}{mg/m3/d}
+
+\item{nep_stratified}{mg/m3/d}
+
+\item{nep_not_stratified}{mg/m3/d}
+
+\item{min_stratified}{mg/m3/d}
+
+\item{min_not_stratified}{mg/m3/d}
+
+\item{wind}{vector of wind speeds?}
+
+\item{khalf}{mg/m3}
+
+\item{startdate}{defaults to NULL}
+
+\item{enddate}{defaults to NULL}
 }
 \value{
 list of datetimes and depths

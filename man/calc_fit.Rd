@@ -7,7 +7,9 @@
 calc_fit(input.values, proc.obs)
 }
 \arguments{
-\item{test_data}{matrix; Matched observed to simulated data}
+\item{input.values}{simulated data}
+
+\item{proc.obs}{observed values}
 }
 \value{
 double value of RMSE

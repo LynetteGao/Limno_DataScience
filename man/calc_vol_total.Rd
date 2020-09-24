@@ -7,9 +7,9 @@
 calc_vol_total(H, A)
 }
 \arguments{
-\item{wtemp}{matrix; Water temperatures (rows correspond to time, cols to depth)}
+\item{H}{depths}
 
-\item{td.depth}{matrix; thermocline depth}
+\item{A}{areas}
 }
 \value{
 list of temperatures

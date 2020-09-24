@@ -9,11 +9,11 @@ preprocess_obs(obs, input.values, H, A)
 \arguments{
 \item{obs}{observed data}
 
+\item{input.values}{input matrix of for instance thermocline depth}
+
 \item{H}{depths}
 
 \item{A}{areas}
-
-\item{pool}{input matrix of for instance thermocline depth}
 }
 \value{
 matched and weighted-averaged data

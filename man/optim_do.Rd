@@ -18,7 +18,25 @@ optim_do(
 )
 }
 \arguments{
-\item{test_data}{matrix; Matched observed to simulated data}
+\item{p}{not sure what this is}
+
+\item{input.values}{output of the input function}
+
+\item{fsed_not_stratified}{mg/m3/d}
+
+\item{nep_not_stratified}{mg/m3/d}
+
+\item{min_not_stratified}{mg/m3/d}
+
+\item{wind}{vector of wind speeds?}
+
+\item{proc.obs}{dissolved oxygen observations for calibration?}
+
+\item{verbose}{not used}
+
+\item{startdate}{defaults to NULL}
+
+\item{enddate}{defaults to NULL}
 }
 \value{
 double value of RMSE

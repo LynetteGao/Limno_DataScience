@@ -192,14 +192,14 @@ calc_epil_hypo_temp<-function(wtemp,td.depth,H){
   
 }
 
-#'
 #' Calculate water total volume,using the thermocline depth
 #'
-#' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
-#' @param td.depth matrix; thermocline depth
+#' @param H depths
+#' @param A areas
+#' 
 #' @return list of temperatures
 #' @importFrom pracma trapz 
-calc_vol_total<-function(H,A){
+calc_vol_total<-function(H, A){
   if (length(H)==1){
     vol_total <- 1/3.0 * A * H
   }else{
@@ -248,6 +248,8 @@ calc_epil_hypo_vol <- function(H,A,td.depth,vol_total){
 #' Calculate mean epilimnion and hypolimnion surface temperature, as well as volumes.
 #'
 #' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
+#' @param H depths
+#' @param A areas
 #' @return vector of thermocline depths in m
 #' @export
 input <- function(wtemp, H, A){
@@ -276,13 +278,28 @@ input <- function(wtemp, H, A){
 
 #' Calculate the mass of dissolved oxgen in epil and hypolimnion(during stratified period)
 #' and the total dissovled oxygen in the lake
-#' @param wtemp matrix; Water temperatures (rows correspond to time, cols to depth)
+#' 
+#' @param input.values output of the input function
+#' @param fsed_stratified_epi mg/m3/d 
+#' @param fsed_stratified_hypo mg/m3/d
+#' @param fsed_not_stratified mg/m3/d
+#' @param nep_stratified mg/m3/d
+#' @param nep_not_stratified mg/m3/d
+#' @param min_stratified mg/m3/d
+#' @param min_not_stratified mg/m3/d
+#' @param wind vector of wind speeds?
+#' @param khalf mg/m3
+#' @param startdate defaults to NULL
+#' @param enddate defaults to NULL
+#' 
 #' @return list of datetimes and depths
 #' @importFrom LakeMetabolizer k.cole.base o2.at.sat.base k600.2.kGAS.base
 #' @export
 #' 
-calc_do<-function(input.values,fsed_stratified_epi,fsed_stratified_hypo,fsed_not_stratified,nep_stratified,nep_not_stratified,
-                  min_stratified, min_not_stratified, wind = NULL, khalf = NULL, startdate = NULL, enddate = NULL){
+calc_do <- function(input.values, fsed_stratified_epi, fsed_stratified_hypo, 
+                    fsed_not_stratified, nep_stratified, nep_not_stratified, 
+                    min_stratified, min_not_stratified, wind = NULL, 
+                    khalf = NULL, startdate = NULL, enddate = NULL){
   
   ##initialize matrix
   o2_data <- matrix(NA, nrow = length(input.values$td.depth), ncol = 18) 
@@ -550,7 +567,8 @@ calc_rmse <- function(test_data){
 
 
 #' Calculates RMSE for total lake
-#' @param test_data matrix; Matched observed to simulated data
+#' @param input.values simulated data
+#' @param proc.obs observed values
 #' @return double value of RMSE
 #' @export
 #' 
@@ -562,13 +580,21 @@ calc_fit <- function(input.values, proc.obs){
 }
 
 #' Calculates RMSE for total lake
+#' 
 #' @inheritParams calc_do
+#' @param p not sure what this is
+#' @param proc.obs dissolved oxygen observations for calibration? 
+#' @param verbose not used
+#' 
 #' @return double value of RMSE
 #' @importFrom lubridate yday year
 #' @export
 #' 
-optim_do <- function(p, input.values, fsed_not_stratified = 0.0002, nep_not_stratified = 0.0, min_not_stratified = 0.0,
-                     wind = NULL, proc.obs,verbose,  startdate = NULL, enddate = NULL){
+optim_do <- function(p, input.values, fsed_not_stratified = 0.0002,
+                     nep_not_stratified = 0.0, min_not_stratified = 0.0,
+                     wind = NULL, proc.obs, verbose,  startdate = NULL, 
+                     enddate = NULL){
+  
   p <- lb+(ub - lb)/(10)*(p)
   
   o2<- calc_do(input.values = input.values,fsed_stratified_epi = p[1],

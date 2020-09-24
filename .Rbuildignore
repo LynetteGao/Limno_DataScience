@@ -6,3 +6,5 @@ get_wq.R
 eval.csv
 calval.csv
 analysis
+Makefile
+^input.*\.txt$

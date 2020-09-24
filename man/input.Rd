@@ -8,6 +8,10 @@ input(wtemp, H, A)
 }
 \arguments{
 \item{wtemp}{matrix; Water temperatures (rows correspond to time, cols to depth)}
+
+\item{H}{depths}
+
+\item{A}{areas}
 }
 \value{
 vector of thermocline depths in m
