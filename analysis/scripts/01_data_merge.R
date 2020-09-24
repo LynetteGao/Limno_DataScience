@@ -93,4 +93,4 @@ input.values$wind <- wind
 
 write.table(input.values, paste0(ii, '/input.txt'),
             append = FALSE, sep = ",", dec = ".",
-            row.names = FALSE, col.names = FALSE) # input data --> B-ODEM
+            row.names = FALSE, col.names = TRUE) # input data --> B-ODEM
