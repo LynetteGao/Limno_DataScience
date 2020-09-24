@@ -1,9 +1,9 @@
-# TODO: accept folder path command line argument
+# ii <- "analysis/data/143249470_Mendota"
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args) > 0){
   ii   <- args[1]
 }else{
-  if (nchar(ii) == 0){
+  if (!exists("ii")){
     stop("Must set the variable 'ii' to a data folder path.")
   }
 }
