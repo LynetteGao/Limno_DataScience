@@ -1,11 +1,13 @@
+LAKES = $(wildcard analysis/data/*_*)
+INPUT_TXT = $(patsubst analysis/data/%, analysis/data/%/input.txt, $(LAKES))
 
-all: data
+test: 
+	echo $(INPUT_TXT)
+	
+all: $(INPUT_TXT)
 
-data: analysis/data/143249470_Mendota/input.txt
-
-analysis/data/143249470_Mendota/input.txt: 
+$(INPUT_TXT): 
 	@Rscript -e "ii <- '$(shell dirname $@)'; source('analysis/scripts/01_data_merge.R')"
 
 clean:
-	-rm analysis/data/143249470_Mendota/input.txt
-	
+	-rm $(INPUT_TXT)
