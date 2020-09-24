@@ -29,8 +29,9 @@ meteo <- read.csv(paste0(ii,'/',
                          list.files(ii, pattern = 'NLDAS',
                                     include.dirs = T))) # meteo NLDAS
 
-chidx <- match(as.POSIXct(data$date),as.POSIXct(meteo$time))
-wind  <- meteo$WindSpeed[chidx]
+chidx   <- match(as.POSIXct(data$date),as.POSIXct(meteo$time))
+wind    <- meteo$WindSpeed[chidx]
+airtemp <- meteo$AirTemp[chidx]
 
 if (length(list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){ # wq LTER
   wq_data <- paste0(ii,'/', 
@@ -86,10 +87,31 @@ eg_nml <- read_nml(paste0(ii,'/',  # NML GLM
 H <- abs(eg_nml$morphometry$H - max(eg_nml$morphometry$H)) # DEPTH
 A <- eg_nml$morphometry$A # AREA
 
-input.values      <- input(wtemp = data, H = H, A = A)
-input.values$year <- year(input.values$datetime)
-input.values$doy  <- yday(input.values$datetime)
-input.values$wind <- wind
+input.values         <- input(wtemp = data, H = H, A = A)
+input.values$year    <- year(input.values$datetime)
+input.values$doy     <- yday(input.values$datetime)
+input.values$wind    <- wind
+input.values$airtemp <- airtemp
+
+input.values <-
+  dplyr::rename(input.values,
+    datetime = datetime,
+    thermocline_depth = td.depth,
+    temperature_epi = t.epil,
+    temperature_hypo = t.hypo,
+    temperature_total = t.total,
+    volume_total = vol_total,
+    volume_epi = vol_epil,
+    volume_hypo = vol_hypo,
+    area_thermocline = td_area,
+    area_surface = surf_area,
+    upper_meta = upper.metalim,
+    lower_meta = lower.metalim,
+    year = year,
+    day_of_year = doy,
+    max.d = max.d,
+    wind = wind,
+    airtemp = airtemp)
 
 write.table(input.values, paste0(ii, '/input.txt'),
             append = FALSE, sep = ",", dec = ".",
