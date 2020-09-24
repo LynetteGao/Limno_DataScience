@@ -259,6 +259,7 @@ input <- function(wtemp, H, A){
   temp_out       <- calc_epil_hypo_temp(wtemp, td.depth, H) # epi T hypo T
   vol_total      <- calc_vol_total(H, A) # epi V hypo V
   vol            <- calc_epil_hypo_vol(H, A, td.depth, vol_total)
+  max.d          <- max(H)
   
   return(data.frame(
     datetime = as.POSIXct(grd.info$datetime), 
@@ -268,7 +269,8 @@ input <- function(wtemp, H, A){
     t.total  = temp_out$t_total, 
     vol_total, vol,
     td_area, surf_area,
-    upper.metalim = metalimn.depth[1,], lower.metalim = metalimn.depth[2,]
+    upper.metalim = metalimn.depth[1,], lower.metalim = metalimn.depth[2,],
+    max.d
     ))
 }
 
