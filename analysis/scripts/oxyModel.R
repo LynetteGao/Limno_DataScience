@@ -15,12 +15,26 @@ library(patchwork)
 
 library(simpleAnoxia)
 
-## load example data
-lks <- list.dirs(path = 'inst/extdata/', full.names = TRUE, recursive = F)
+lks <- list.dirs(path = 'analysis/data/', full.names = TRUE, recursive = F)
+
+## ---- load example data ----
+# inputs: 
+#   temperature data: (pball*.csv)
+#   meteo data:       (NLDAS*.csv)
+#   wq data:          (wq_data*.csv)
+#   glm config:       (*.nml)
+# outputs:
+#   input_{lake}.txt
+#   observed
+#   observed_long
 
 for (ii in lks){
+  # ii <- lks[2]
   print(paste0('Running ',ii))
-  data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'pball', include.dirs = T)))
+  data <- read.csv(paste0(ii,'/', 
+            list.files(ii, pattern = 'pball.*_temperatures.csv$',
+                       include.dirs = TRUE)
+            ))
   meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T)))
   
   chidx <- match(as.POSIXct(data$date),as.POSIXct(meteo$time))
@@ -77,7 +91,9 @@ for (ii in lks){
   
   input.values$wind = wind
   input.values$airtemp = airtemp
-  write.table(input.values, paste0('input_',sub("\\).*", "", sub(".*\\(", "", ii)) ,'.txt'), append = FALSE, sep = ",", dec = ".",
+  write.table(input.values, 
+   paste0('input_',sub("\\).*", "", sub(".*\\(", "", ii)) ,'.txt'), 
+              append = FALSE, sep = ",", dec = ".",
               row.names = FALSE, col.names = FALSE)
   
   # proc.obs <- preprocess_obs(obs,input.values = input.values, H, A)
@@ -158,38 +174,60 @@ for (ii in lks){
   print('Got that data, moving on.')
 }
 
+## ---- Model fitting? ----
+# inputs: 
+#   temperature data: (pball*.csv)
+#   meteo data:       (NLDAS*.csv)
+#   wq data:          (wq_data*.csv)
+#   glm config:       (*.nml)
+# operations:   
+#   optim_do
+#   calc_do
+#   compare_predict_versus_observed
+# outputs:
+#   input
+#   observed
+#   calval
+#   alldata
+#   oxymodel
+#   obs
+#   fluxes
+#   calibparams
+#   eval.csv
+
 for (ii in lks){
   print(paste0('Running ',ii))
-  data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'pball', include.dirs = T))) # GLM sim water temp
+  data <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'pball.*_temperatures.csv$', include.dirs = T))) # GLM sim water temp
   meteo <- read.csv(paste0(ii,'/', list.files(ii, pattern = 'NLDAS', include.dirs = T))) # meteo NLDAS
   
   chidx <- match(as.POSIXct(data$date),as.POSIXct(meteo$time))
   wind <- meteo$WindSpeed[chidx]
   
   if (length( list.files(ii, pattern = 'wq_data', include.dirs = T)) > 0){ # wq LTER
-  wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
-  obs <- NULL
-
-  for(jj in wq_data){
-      raw_obs <- read.csv(jj)
-      if ('ActivityDepthHeighMeasure.MeasureValue' %in% colnames(raw_obs)){
-        wq <- raw_obs %>%
-          dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
-          dplyr::select(c('ActivityStartDate', 'ActivityDepthHeighMeasure.MeasureValue', 'ResultMeasureValue'))
-       wq <- rename(wq, 'ActivityDepthHeightMeasure.MeasureValue' = 'ActivityDepthHeighMeasure.MeasureValue')
-      } else {
-        wq <- raw_obs %>%
-          dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
-          dplyr::select(c('ActivityStartDate', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
-      }
-      
-      if (length(wq_data) == 1 | is.null(obs)){
-        obs <- wq
-      } else {
-        obs <- rbind(obs, wq)
-      }
-  }
-  obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
+    wq_data<- paste0(ii,'/', list.files(ii, pattern = 'wq_data', include.dirs = T))
+    obs <- NULL
+  
+    for(jj in wq_data){
+        # jj <- wq_data[1]
+        raw_obs <- read.csv(jj)
+        if ('ActivityDepthHeighMeasure.MeasureValue' %in% colnames(raw_obs)){
+          wq <- raw_obs %>%
+            dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
+            dplyr::select(c('ActivityStartDate', 'ActivityDepthHeighMeasure.MeasureValue', 'ResultMeasureValue'))
+         wq <- rename(wq, 'ActivityDepthHeightMeasure.MeasureValue' = 'ActivityDepthHeighMeasure.MeasureValue')
+        } else {
+          wq <- raw_obs %>%
+            dplyr::filter(CharacteristicName== "Dissolved oxygen (DO)") %>%
+            dplyr::select(c('ActivityStartDate', 'ActivityDepthHeightMeasure.MeasureValue', 'ResultMeasureValue'))
+        }
+        
+        if (length(wq_data) == 1 | is.null(obs)){
+          obs <- wq
+        } else {
+          obs <- rbind(obs, wq)
+        }
+    }
+    obs$ActivityStartDate<-as.POSIXct(obs$ActivityStartDate)
   }
 
   if (is.factor(obs$ActivityDepthHeightMeasure.MeasureValue)){
@@ -573,6 +611,8 @@ for (ii in lks){
                 row.names = FALSE)
   print('Nothing got broken, good job!')
 }
+
+## ---- explore model diagnostics ----
 
 library(viridis)
 library(patchwork)

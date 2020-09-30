@@ -1,4 +1,3 @@
-rm(list = ls())
 
 library(rLakeAnalyzer)
 library(tidyverse)
@@ -160,6 +159,8 @@ for (ii in lks){
   a=a+1
   
 }
+
+## ----visualization ----
 
 ggplot(df, aes(tp, doc, col = id)) + geom_point() 
 
